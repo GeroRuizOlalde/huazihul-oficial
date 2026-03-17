@@ -1,9 +1,16 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, Save, Loader2, Upload, X, CheckCircle2, AlertCircle, Trash2 } from "lucide-react";
+import {
+  ArrowLeft,
+  Loader2,
+  Upload,
+  X,
+  AlertCircle,
+  Trash2,
+} from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
@@ -11,71 +18,112 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 
+type PreviewItem = {
+  file: File;
+  preview: string;
+};
+
 export default function EditarNoticiaPage() {
   const router = useRouter();
-  const params = useParams();
-  const id = params.id;
-  const supabase = createClient();
+  const params = useParams<{ id: string }>();
+  const id = params?.id;
+
+  const supabase = useMemo(() => createClient(), []);
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
-  
-  // Estados del Formulario
+
   const [titulo, setTitulo] = useState("");
   const [etiqueta, setEtiqueta] = useState("Institucional");
   const [descripcion, setDescripcion] = useState("");
-  
-  // Gestión de Imágenes (Existentes y Nuevas)
-  const [existingImages, setExistingImages] = useState<string[]>([]);
-  const [newFiles, setNewFiles] = useState<File[]>([]);
-  const [newPreviews, setNewPreviews] = useState<string[]>([]);
 
-  // 1. Cargar datos de la noticia al iniciar
+  const [existingImages, setExistingImages] = useState<string[]>([]);
+  const [newImages, setNewImages] = useState<PreviewItem[]>([]);
+
+  useEffect(() => {
+    return () => {
+      newImages.forEach((img) => URL.revokeObjectURL(img.preview));
+    };
+  }, [newImages]);
+
   useEffect(() => {
     const fetchNoticia = async () => {
+      if (!id) return;
+
+      setIsLoading(true);
+      setErrorMsg("");
+
       const { data, error } = await supabase
-        .from('noticias')
-        .select('*')
-        .eq('id', id)
+        .from("noticias")
+        .select("id, titulo, etiqueta, descripcion, imagen_url, galeria")
+        .eq("id", id)
         .single();
 
-      if (error) {
+      if (error || !data) {
         setErrorMsg("No se pudo cargar la noticia.");
-      } else {
-        setTitulo(data.titulo);
-        setEtiqueta(data.etiqueta);
-        setDescripcion(data.descripcion);
-        // Consolidamos la imagen principal y la galería en un solo array visual
-        setExistingImages([data.imagen_url, ...(data.galeria || [])].filter(Boolean));
+        setIsLoading(false);
+        return;
       }
+
+      setTitulo(data.titulo || "");
+      setEtiqueta(data.etiqueta || "Institucional");
+      setDescripcion(data.descripcion || "");
+
+      const galeria = Array.isArray(data.galeria) ? data.galeria : [];
+      setExistingImages([data.imagen_url, ...galeria].filter(Boolean));
+
       setIsLoading(false);
     };
 
-    if (id) fetchNoticia();
+    fetchNoticia();
   }, [id, supabase]);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    if (e.target.files) {
-      const files = Array.from(e.target.files);
-      setNewFiles((prev) => [...prev, ...files]);
-      const previews = files.map(file => URL.createObjectURL(file));
-      setNewPreviews((prev) => [...prev, ...previews]);
-    }
+    if (!e.target.files?.length) return;
+
+    const files = Array.from(e.target.files);
+
+    const nuevasImagenes = files.map((file) => ({
+      file,
+      preview: URL.createObjectURL(file),
+    }));
+
+    setNewImages((prev) => [...prev, ...nuevasImagenes]);
+    e.target.value = "";
   };
 
   const removeExisting = (index: number) => {
-    setExistingImages(prev => prev.filter((_, i) => i !== index));
+    setExistingImages((prev) => prev.filter((_, i) => i !== index));
   };
 
   const removeNew = (index: number) => {
-    setNewFiles(prev => prev.filter((_, i) => i !== index));
-    setNewPreviews(prev => prev.filter((_, i) => i !== index));
+    setNewImages((prev) => {
+      const imageToRemove = prev[index];
+      if (imageToRemove) {
+        URL.revokeObjectURL(imageToRemove.preview);
+      }
+      return prev.filter((_, i) => i !== index);
+    });
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    if (existingImages.length === 0 && newFiles.length === 0) {
+
+    const tituloLimpio = titulo.trim();
+    const descripcionLimpia = descripcion.trim();
+
+    if (!tituloLimpio) {
+      setErrorMsg("Ingresá un título para la noticia.");
+      return;
+    }
+
+    if (!descripcionLimpia) {
+      setErrorMsg("Completá el contenido de la noticia.");
+      return;
+    }
+
+    if (existingImages.length === 0 && newImages.length === 0) {
       setErrorMsg("La noticia debe tener al menos una imagen.");
       return;
     }
@@ -83,49 +131,59 @@ export default function EditarNoticiaPage() {
     setIsSaving(true);
     setErrorMsg("");
 
+    const uploadedPaths: string[] = [];
+
     try {
       let finalUrls = [...existingImages];
 
-      // 1. Subir las NUEVAS imágenes si existen
-      for (const file of newFiles) {
-        const fileExt = file.name.split('.').pop();
-        const fileName = `${Math.random()}.${fileExt}`;
+      for (const imagen of newImages) {
+        const file = imagen.file;
+        const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+        const fileName = `${crypto.randomUUID()}.${fileExt}`;
+        const filePath = `publicaciones/${fileName}`;
+
         const { error: uploadError } = await supabase.storage
-          .from('noticias')
-          .upload(fileName, file);
+          .from("noticias")
+          .upload(filePath, file, {
+            cacheControl: "3600",
+            upsert: false,
+          });
 
         if (uploadError) throw uploadError;
 
-        const { data: { publicUrl } } = supabase.storage
-          .from('noticias')
-          .getPublicUrl(fileName);
-        
+        uploadedPaths.push(filePath);
+
+        const {
+          data: { publicUrl },
+        } = supabase.storage.from("noticias").getPublicUrl(filePath);
+
         finalUrls.push(publicUrl);
       }
 
-      // 2. Organizar: La primera es la principal, el resto galería
       const imagen_url = finalUrls[0];
       const galeria = finalUrls.slice(1);
 
-      // 3. ACTUALIZAR en Supabase
       const { error: updateError } = await supabase
-        .from('noticias')
+        .from("noticias")
         .update({
-          titulo,
+          titulo: tituloLimpio,
           etiqueta,
-          descripcion,
+          descripcion: descripcionLimpia,
           imagen_url,
-          galeria
+          galeria,
         })
-        .eq('id', id);
+        .eq("id", id);
 
       if (updateError) throw updateError;
 
       router.push("/admin/noticias");
       router.refresh();
-
     } catch (err: any) {
-      setErrorMsg(err.message || "Error al actualizar.");
+      if (uploadedPaths.length > 0) {
+        await supabase.storage.from("noticias").remove(uploadedPaths);
+      }
+
+      setErrorMsg(err?.message || "Error al actualizar la noticia.");
     } finally {
       setIsSaving(false);
     }
@@ -140,42 +198,57 @@ export default function EditarNoticiaPage() {
   }
 
   return (
-    <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 duration-500 pb-20">
-      
+    <div className="mx-auto max-w-5xl animate-in fade-in slide-in-from-bottom-4 pb-20 duration-500">
       <div className="mb-8 flex items-center gap-4">
-        <Link href="/admin/noticias" className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 hover:bg-zinc-50">
+        <Link
+          href="/admin/noticias"
+          className="flex h-10 w-10 items-center justify-center rounded-xl border border-zinc-200 bg-white text-zinc-500 transition-colors hover:bg-zinc-50"
+        >
           <ArrowLeft className="h-4 w-4" />
         </Link>
+
         <h1 className="text-2xl font-black uppercase tracking-tighter text-zinc-900">
           Editar <span className="text-red-600">Noticia</span>
         </h1>
       </div>
 
       <form onSubmit={handleSubmit} className="grid grid-cols-1 gap-8 lg:grid-cols-3">
-        
-        <div className="lg:col-span-2 space-y-6">
+        <div className="space-y-6 lg:col-span-2">
           <Card className="border-none shadow-sm">
-            <CardContent className="p-6 md:p-8 space-y-6">
+            <CardContent className="space-y-6 p-6 md:p-8">
               {errorMsg && (
-                <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm text-red-600 font-medium">
-                  <AlertCircle className="h-5 w-5" /> {errorMsg}
+                <div className="flex items-center gap-3 rounded-xl border border-red-200 bg-red-50 p-4 text-sm font-medium text-red-600">
+                  <AlertCircle className="h-5 w-5" />
+                  {errorMsg}
                 </div>
               )}
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Título</Label>
-                <Input 
+                <Label
+                  htmlFor="titulo"
+                  className="text-[10px] font-bold uppercase tracking-widest text-zinc-400"
+                >
+                  Título
+                </Label>
+                <Input
+                  id="titulo"
                   value={titulo}
                   onChange={(e) => setTitulo(e.target.value)}
-                  className="h-14 text-xl font-bold border-zinc-200 focus-visible:ring-red-600"
+                  className="h-14 border-zinc-200 text-xl font-bold focus-visible:ring-red-600"
                   required
                 />
               </div>
 
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Contenido</Label>
-                <textarea 
-                  className="min-h-[300px] w-full rounded-xl border border-zinc-200 p-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-600"
+                <Label
+                  htmlFor="contenido"
+                  className="text-[10px] font-bold uppercase tracking-widest text-zinc-400"
+                >
+                  Contenido
+                </Label>
+                <textarea
+                  id="contenido"
+                  className="min-h-[300px] w-full rounded-xl border border-zinc-200 p-4 text-sm transition-all focus:outline-none focus:ring-2 focus:ring-red-600"
                   value={descripcion}
                   onChange={(e) => setDescripcion(e.target.value)}
                   required
@@ -184,38 +257,78 @@ export default function EditarNoticiaPage() {
             </CardContent>
           </Card>
 
-          {/* GESTIÓN DE IMÁGENES */}
+          {/* IMÁGENES */}
           <Card className="border-none shadow-sm">
             <CardContent className="p-6 md:p-8">
-              <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400 block mb-4">Fotos de la noticia</Label>
-              
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                {/* Fotos que ya estaban en la BD */}
+              <Label className="mb-4 block text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                Fotos de la noticia
+              </Label>
+
+              <div className="grid grid-cols-2 gap-4 md:grid-cols-4">
                 {existingImages.map((src, i) => (
-                  <div key={`exist-${i}`} className="relative aspect-square group rounded-xl overflow-hidden border-2 border-zinc-100">
-                    <img src={src} className="h-full w-full object-cover" />
-                    <button type="button" onClick={() => removeExisting(i)} className="absolute top-2 right-2 bg-zinc-900/80 text-white p-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div
+                    key={`exist-${i}`}
+                    className="group relative aspect-square overflow-hidden rounded-xl border-2 border-zinc-100"
+                  >
+                    <img
+                      src={src}
+                      alt={`Imagen existente ${i + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => removeExisting(i)}
+                      className="absolute right-2 top-2 rounded-lg bg-zinc-900/80 p-1.5 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                    >
                       <Trash2 className="h-3 w-3" />
                     </button>
-                    {i === 0 && <div className="absolute bottom-0 left-0 w-full bg-zinc-900 text-[8px] text-white font-bold uppercase py-1 text-center">Portada</div>}
+
+                    {i === 0 && (
+                      <div className="absolute bottom-0 left-0 w-full bg-zinc-900 py-1 text-center text-[8px] font-bold uppercase text-white">
+                        Portada
+                      </div>
+                    )}
                   </div>
                 ))}
 
-                {/* Fotos nuevas para subir */}
-                {newPreviews.map((src, i) => (
-                  <div key={`new-${i}`} className="relative aspect-square group rounded-xl overflow-hidden border-2 border-red-100">
-                    <img src={src} className="h-full w-full object-cover" />
-                    <button type="button" onClick={() => removeNew(i)} className="absolute top-2 right-2 bg-red-600 text-white p-1.5 rounded-lg">
+                {newImages.map((item, i) => (
+                  <div
+                    key={`new-${item.file.name}-${i}`}
+                    className="group relative aspect-square overflow-hidden rounded-xl border-2 border-red-100"
+                  >
+                    <img
+                      src={item.preview}
+                      alt={`Nueva imagen ${i + 1}`}
+                      className="h-full w-full object-cover"
+                    />
+
+                    <button
+                      type="button"
+                      onClick={() => removeNew(i)}
+                      className="absolute right-2 top-2 rounded-lg bg-red-600 p-1.5 text-white"
+                    >
                       <X className="h-3 w-3" />
                     </button>
-                    <div className="absolute bottom-0 left-0 w-full bg-red-600 text-[8px] text-white font-bold uppercase py-1 text-center">Nueva</div>
+
+                    <div className="absolute bottom-0 left-0 w-full bg-red-600 py-1 text-center text-[8px] font-bold uppercase text-white">
+                      Nueva
+                    </div>
                   </div>
                 ))}
-                
-                <label className="flex flex-col items-center justify-center aspect-square border-2 border-dashed border-zinc-200 rounded-xl cursor-pointer hover:bg-zinc-50 hover:border-red-600 transition-all">
-                  <Upload className="h-6 w-6 text-zinc-400 mb-2" />
-                  <span className="text-[9px] font-bold uppercase text-zinc-500">Añadir más</span>
-                  <input type="file" multiple accept="image/*" className="hidden" onChange={handleFileChange} />
+
+                <label className="flex aspect-square cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-zinc-200 transition-all hover:border-red-600 hover:bg-zinc-50">
+                  <Upload className="mb-2 h-6 w-6 text-zinc-400" />
+                  <span className="text-[9px] font-bold uppercase text-zinc-500">
+                    Añadir más
+                  </span>
+                  <input
+                    type="file"
+                    multiple
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handleFileChange}
+                  />
                 </label>
               </div>
             </CardContent>
@@ -223,12 +336,14 @@ export default function EditarNoticiaPage() {
         </div>
 
         <div className="space-y-6">
-          <Card className="border-none shadow-sm sticky top-6">
-            <CardContent className="p-6 space-y-6">
+          <Card className="sticky top-6 border-none shadow-sm">
+            <CardContent className="space-y-6 p-6">
               <div className="space-y-2">
-                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">Categoría</Label>
-                <select 
-                  className="w-full h-12 rounded-xl border border-zinc-200 bg-white px-4 text-sm font-medium focus:ring-2 focus:ring-red-600 outline-none"
+                <Label className="text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+                  Categoría
+                </Label>
+                <select
+                  className="h-12 w-full rounded-xl border border-zinc-200 bg-white px-4 text-sm font-medium outline-none focus:ring-2 focus:ring-red-600"
                   value={etiqueta}
                   onChange={(e) => setEtiqueta(e.target.value)}
                 >
@@ -239,13 +354,17 @@ export default function EditarNoticiaPage() {
                 </select>
               </div>
 
-              <div className="pt-4 border-t border-zinc-100">
-                <Button 
-                  type="submit" 
+              <div className="border-t border-zinc-100 pt-4">
+                <Button
+                  type="submit"
                   disabled={isSaving}
-                  className="w-full bg-red-600 hover:bg-red-700 text-white py-7 rounded-2xl font-black uppercase tracking-widest text-xs shadow-lg shadow-red-600/20"
+                  className="w-full rounded-2xl bg-red-600 py-7 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20 hover:bg-red-700"
                 >
-                  {isSaving ? <Loader2 className="h-5 w-5 animate-spin" /> : "Guardar Cambios"}
+                  {isSaving ? (
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                  ) : (
+                    "Guardar Cambios"
+                  )}
                 </Button>
               </div>
             </CardContent>

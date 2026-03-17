@@ -1,58 +1,103 @@
 import Link from "next/link";
-import { ArrowRight, ImagePlus, PenTool, ShieldAlert } from "lucide-react";
+import { ArrowRight, ImagePlus, PenTool, ShieldAlert, LucideIcon } from "lucide-react";
+
+type AdminCard = {
+  titulo: string;
+  descripcion: string;
+  href: string;
+  cta: string;
+  color: "amber" | "red";
+  icono: LucideIcon;
+  iconoFondo: LucideIcon;
+};
+
+const cards: AdminCard[] = [
+  {
+    titulo: "Moderar Fotos",
+    descripcion:
+      "Revisá las fotos que enviaron los socios y aprobalas para que aparezcan en la galería pública.",
+    href: "/admin/galeria",
+    cta: "Ir a Moderación",
+    color: "amber",
+    icono: ImagePlus,
+    iconoFondo: ShieldAlert,
+  },
+  {
+    titulo: "Nueva Noticia",
+    descripcion:
+      "Publicá novedades, resultados de partidos o comunicados oficiales en la web del club.",
+    href: "/admin/noticias/crear",
+    cta: "Escribir Artículo",
+    color: "red",
+    icono: PenTool,
+    iconoFondo: PenTool,
+  },
+];
+
+const colorClasses = {
+  amber: {
+    box: "bg-amber-100 text-amber-600",
+    text: "text-amber-600 hover:text-amber-700",
+  },
+  red: {
+    box: "bg-red-100 text-red-600",
+    text: "text-red-600 hover:text-red-800",
+  },
+};
 
 export default function AdminDashboard() {
   return (
-    <div className="max-w-5xl">
+    <div className="mx-auto w-full max-w-5xl">
       <header className="mb-10">
-        <h1 className="text-3xl md:text-5xl font-black uppercase tracking-tighter text-zinc-900 mb-2">
+        <h1 className="mb-2 text-3xl font-black uppercase tracking-tighter text-zinc-900 md:text-5xl">
           Tablero <span className="text-red-600">General</span>
         </h1>
-        <p className="text-zinc-500 font-medium text-sm">
+        <p className="text-sm font-medium text-zinc-500">
           Bienvenido al portal de gestión de contenidos del Club Huazihul.
         </p>
       </header>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        
-        {/* Tarjeta 1: Moderar Fotos */}
-        <div className="bg-white border border-zinc-200 p-6 shadow-sm flex flex-col h-full relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <ShieldAlert className="w-24 h-24" />
-          </div>
-          <div className="mb-4">
-            <div className="w-10 h-10 bg-amber-100 flex items-center justify-center text-amber-600 mb-4">
-              <ImagePlus className="w-5 h-5" />
-            </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-zinc-900 mb-2">Moderar Fotos</h2>
-            <p className="text-xs text-zinc-500 font-light leading-relaxed">
-              Revisá las fotos que enviaron los socios y aprobalas para que aparezcan en la galería pública.
-            </p>
-          </div>
-          <Link href="/admin/galeria" className="mt-auto pt-4 flex items-center text-[10px] font-bold uppercase tracking-widest text-amber-600 hover:text-amber-700">
-            Ir a Moderación <ArrowRight className="w-4 h-4 ml-2" />
-          </Link>
-        </div>
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-2 lg:grid-cols-2">
+        {cards.map((card) => {
+          const Icono = card.icono;
+          const IconoFondo = card.iconoFondo;
+          const colors = colorClasses[card.color];
 
-        {/* Tarjeta 2: Redactar Noticia */}
-        <div className="bg-white border border-zinc-200 p-6 shadow-sm flex flex-col h-full relative overflow-hidden group">
-          <div className="absolute top-0 right-0 p-4 opacity-5 group-hover:opacity-10 transition-opacity">
-            <PenTool className="w-24 h-24" />
-          </div>
-          <div className="mb-4">
-            <div className="w-10 h-10 bg-red-100 flex items-center justify-center text-red-600 mb-4">
-              <PenTool className="w-5 h-5" />
-            </div>
-            <h2 className="text-xl font-black uppercase tracking-tight text-zinc-900 mb-2">Nueva Noticia</h2>
-            <p className="text-xs text-zinc-500 font-light leading-relaxed">
-              Publicá novedades, resultados de partidos o comunicados oficiales en la web del club.
-            </p>
-          </div>
-          <Link href="/admin/noticias/crear" className="mt-auto pt-4 flex items-center text-[10px] font-bold uppercase tracking-widest text-red-600 hover:text-red-800">
-            Escribir Artículo <ArrowRight className="w-4 h-4 ml-2" />
-          </Link>
-        </div>
+          return (
+            <div
+              key={card.href}
+              className="group relative flex h-full min-h-[260px] flex-col overflow-hidden rounded-[2rem] border border-zinc-200 bg-white p-6 shadow-sm transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
+            >
+              <div className="absolute right-0 top-0 p-4 opacity-5 transition-opacity group-hover:opacity-10">
+                <IconoFondo className="h-24 w-24" />
+              </div>
 
+              <div className="mb-4">
+                <div
+                  className={`mb-4 flex h-10 w-10 items-center justify-center rounded-xl ${colors.box}`}
+                >
+                  <Icono className="h-5 w-5" />
+                </div>
+
+                <h2 className="mb-2 text-xl font-black uppercase tracking-tight text-zinc-900">
+                  {card.titulo}
+                </h2>
+
+                <p className="text-xs font-light leading-relaxed text-zinc-500">
+                  {card.descripcion}
+                </p>
+              </div>
+
+              <Link
+                href={card.href}
+                className={`mt-auto flex items-center pt-4 text-[10px] font-bold uppercase tracking-widest transition-colors ${colors.text}`}
+              >
+                {card.cta}
+                <ArrowRight className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </Link>
+            </div>
+          );
+        })}
       </div>
     </div>
   );

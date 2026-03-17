@@ -1,34 +1,33 @@
+import { FileWarning } from "lucide-react";
 import { supabasePublic } from "@/lib/supabase/public";
 import { ActionsTable } from "@/components/admin/noticias/ActionsTable";
-import { FileWarning } from "lucide-react";
 
 export default async function AdminNoticiasPage() {
-  // Vamos a buscar las noticias a Supabase desde el Servidor
   const { data: noticias, error } = await supabasePublic
-    .from('noticias')
-    .select('id, titulo, etiqueta, creado_en')
-    .order('creado_en', { ascending: false });
+    .from("noticias")
+    .select("id, titulo, etiqueta, creado_en")
+    .order("creado_en", { ascending: false });
 
-  // Manejo de error de base de datos
   if (error || !noticias) {
     return (
-      <div className="min-h-[60vh] flex flex-col items-center justify-center bg-zinc-50 px-4 text-center">
+      <div className="flex min-h-[60vh] flex-col items-center justify-center bg-zinc-50 px-4 text-center">
         <FileWarning className="mx-auto mb-6 h-16 w-16 text-red-600" />
-        <h1 className="text-3xl font-black uppercase tracking-tighter text-zinc-900 mb-2">
+
+        <h1 className="mb-2 text-3xl font-black uppercase tracking-tighter text-zinc-900">
           Error de <span className="text-red-600">Conexión</span>
         </h1>
-        <p className="text-sm font-light text-zinc-500 max-w-md">
-          Ocurrió un error al intentar cargar el listado de noticias de Riva Estudio. Verificá tu conexión o reintentá más tarde.
+
+        <p className="max-w-md text-sm font-light text-zinc-500">
+          Ocurrió un error al intentar cargar el listado de noticias de
+          Huazihul. Verificá tu conexión o reintentá más tarde.
         </p>
-        <p className="mt-4 text-xs font-mono text-zinc-400 p-3 bg-zinc-100 rounded">
+
+        <p className="mt-4 rounded bg-zinc-100 p-3 font-mono text-xs text-zinc-400">
           {error?.message || "Error desconocido."}
         </p>
       </div>
     );
   }
 
-  // Si todo sale bien, le pasamos las noticias al componente cliente
-  return (
-    <ActionsTable initialNoticias={noticias} />
-  );
+  return <ActionsTable initialNoticias={noticias} />;
 }
