@@ -19,25 +19,27 @@ export function Navbar() {
   const cerrarMenu = () => setMenuAbierto(false);
 
   return (
-    <nav className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-black backdrop-blur-md text-white shadow-xl">
-      <div className="container mx-auto flex h-20 max-w-7xl items-center justify-between px-6 md:px-8">
+    <nav className="sticky top-0 z-50 w-full border-b border-zinc-800 bg-black/90 backdrop-blur-md text-white shadow-xl">
+      {/* Ajuste móvil: px-4 en lugar de px-6 para dar más aire a los costados */}
+      <div className="container mx-auto flex h-20 max-w-7xl items-center justify-between px-4 md:px-8">
         
         {/* LOGO */}
         <Link 
           href="/" 
           onClick={cerrarMenu} 
-          className="flex items-center gap-3 group z-[60]"
+          className="flex items-center gap-2 md:gap-3 group z-[60]"
         >
           <img 
             src="/images/logohuazi.png" 
             alt="Escudo Huazihul" 
-            className="w-10 h-10 md:w-12 md:h-12 object-contain group-hover:rotate-6 transition-transform duration-300" 
+            className="w-9 h-9 md:w-12 md:h-12 object-contain group-hover:rotate-6 transition-transform duration-300" 
           />
           <div className="flex flex-col">
-            <span className="font-black uppercase tracking-tighter text-xl md:text-2xl leading-none group-hover:text-red-600 transition-colors">
+            {/* Ajuste móvil: text-lg en celu, text-2xl en desktop */}
+            <span className="font-black uppercase tracking-tighter text-lg md:text-2xl leading-none group-hover:text-red-600 transition-colors">
               Huazihul
             </span>
-            <span className="text-[8px] font-bold uppercase tracking-[0.4em] text-zinc-500 leading-none mt-1">
+            <span className="text-[7px] md:text-[8px] font-bold uppercase tracking-[0.4em] text-zinc-500 leading-none mt-1">
               San Juan
             </span>
           </div>
@@ -102,10 +104,11 @@ export function Navbar() {
 
           {/* BOTÓN HAMBURGUESA */}
           <button 
-            className="lg:hidden text-white p-2 hover:bg-zinc-900 transition-colors z-[60]" 
+            className="lg:hidden text-white p-2 hover:bg-zinc-900 rounded-lg transition-colors z-[60]" 
             onClick={() => setMenuAbierto(!menuAbierto)}
           >
-            {menuAbierto ? <X className="w-8 h-8 text-red-600" /> : <Menu className="w-8 h-8" />}
+            {/* Ajuste móvil: Iconos un poco más chicos (w-7) para que no se vean toscos */}
+            {menuAbierto ? <X className="w-7 h-7 text-red-600" /> : <Menu className="w-7 h-7" />}
           </button>
         </div>
       </div>
@@ -115,30 +118,31 @@ export function Navbar() {
         "lg:hidden fixed inset-0 top-0 z-[55] w-full bg-zinc-950/98 backdrop-blur-xl transition-all duration-500 ease-in-out",
         menuAbierto ? "translate-y-0 opacity-100" : "-translate-y-full opacity-0"
       )}>
-        <div className="flex flex-col p-8 pt-28 space-y-8 h-full overflow-y-auto">
-          <Link href="/" className="font-black uppercase tracking-widest text-4xl text-white border-b border-zinc-900 pb-4">Inicio</Link>
+        <div className="flex flex-col p-8 pt-24 space-y-8 h-full overflow-y-auto">
+          <Link href="/" onClick={cerrarMenu} className="font-black uppercase tracking-widest text-4xl text-white border-b border-zinc-900 pb-4">Inicio</Link>
           
           <div className="space-y-4">
             <span className="font-black uppercase tracking-widest text-[10px] text-red-600">Institucional</span>
             <div className="flex flex-col gap-6 pl-4 border-l border-zinc-800">
-              <Link href="/el-club" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Historia</Link>
-              <Link href="/centenario" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Centenario</Link>
-              <Link href="/sponsors" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Sponsors</Link>
-              <Link href="/contacto" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Contacto</Link>
+              {/* CORRECCIÓN: Se agregó onClick={cerrarMenu} a todos los links */}
+              <Link href="/el-club" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Historia</Link>
+              <Link href="/centenario" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Centenario</Link>
+              <Link href="/sponsors" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Sponsors</Link>
+              <Link href="/contacto" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Contacto</Link>
             </div>
           </div>
 
           <div className="space-y-4">
             <span className="font-black uppercase tracking-widest text-[10px] text-red-600">Deportes</span>
             <div className="flex flex-col gap-6 pl-4 border-l border-zinc-800">
-              <Link href="/deportes/rugby" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Rugby</Link>
-              <Link href="/deportes/hockey" className="font-bold uppercase tracking-widest text-xl text-zinc-300">Hockey</Link>
+              <Link href="/deportes/rugby" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Rugby</Link>
+              <Link href="/deportes/hockey" onClick={cerrarMenu} className="font-bold uppercase tracking-widest text-xl text-zinc-300">Hockey</Link>
             </div>
           </div>
 
           <div className="pt-8 border-t border-zinc-900">
             <Button asChild className="w-full bg-red-600 hover:bg-white hover:text-black text-white rounded-none font-black uppercase tracking-widest h-16 text-sm shadow-xl shadow-red-600/30 transition-all">
-              <Link href="/socios">Hacete Socio</Link>
+              <Link href="/socios" onClick={cerrarMenu}>Hacete Socio</Link>
             </Button>
           </div>
         </div>

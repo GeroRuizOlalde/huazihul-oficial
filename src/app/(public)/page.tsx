@@ -96,15 +96,27 @@ export default async function HomePage() {
             Bienvenidos a <br className="md:hidden" /> <span className="text-red-600">Huazihul</span>
           </h1>
           
-          <p className="text-zinc-300 text-base md:text-xl font-light max-w-xl mb-10 leading-relaxed mx-auto px-4">
+          <p className="text-zinc-300 text-base md:text-xl font-light max-w-xl mb-12 md:mb-16 leading-relaxed mx-auto px-4">
             Club de Rugby y Hockey. Formando deportistas y construyendo familia desde 1927. Rumbo a nuestro primer centenario.
           </p>
           
-          <div className="flex flex-col sm:flex-row gap-4 w-full sm:w-auto px-6 sm:px-0">
-            <Button className="bg-red-600 hover:bg-red-700 text-white rounded-none uppercase font-bold tracking-widest px-8 py-7 text-base md:text-lg transition-transform" asChild>
-              <Link href="/socios">Asociate Hoy</Link>
+          {/* AQUÍ SE APLICÓ LA CORRECCIÓN DE LOS BOTONES */}
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 w-full max-w-lg px-2 sm:px-0 mx-auto">
+            <Button 
+              asChild 
+              className="w-full sm:w-auto bg-red-600 hover:bg-white text-white hover:text-black rounded-full font-black uppercase tracking-[0.2em] text-xs md:text-sm px-10 py-6 transition-all duration-300 shadow-xl shadow-red-600/20 active:scale-95 group"
+            >
+              <Link href="/socios" className="flex items-center gap-2 justify-center">
+                Asociate Hoy
+                <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+              </Link>
             </Button>
-            <Button variant="outline" className="bg-transparent border-white text-white hover:bg-white hover:text-black rounded-none uppercase font-bold tracking-widest px-8 py-7 text-base md:text-lg transition-colors" asChild>
+
+            <Button 
+              asChild 
+              variant="outline" 
+              className="w-full sm:w-auto bg-transparent border-2 border-white/30 text-white hover:bg-white/10 hover:border-white rounded-full font-black uppercase tracking-[0.2em] text-xs md:text-sm px-10 py-6 transition-all duration-300 backdrop-blur-sm active:scale-95"
+            >
               <Link href="/deportes">Quiero Jugar</Link>
             </Button>
           </div>
@@ -216,7 +228,7 @@ export default async function HomePage() {
                   <Users className="w-5 h-5 text-red-600" /> Familia
                 </div>
               </div>
-              <Button variant="outline" className="w-full sm:w-auto border-red-600 text-red-500 bg-transparent hover:bg-red-600 hover:text-white rounded-none uppercase font-bold tracking-widest px-8" asChild>
+              <Button variant="outline" className="w-full sm:w-auto border-red-600 text-red-500 bg-transparent hover:bg-red-600 hover:text-white rounded-none uppercase font-bold tracking-widest h-12 px-8" asChild>
                 <Link href="/el-club">Instalaciones</Link>
               </Button>
             </div>
@@ -284,7 +296,7 @@ export default async function HomePage() {
             <div className="my-8 scale-90 sm:scale-100 origin-left">
               <Countdown />
             </div>
-            <Button className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white rounded-none uppercase font-bold tracking-widest px-8 py-6 h-auto" asChild>
+            <Button className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white rounded-none uppercase font-bold tracking-widest px-8 h-14" asChild>
               <Link href="/camino-al-centenario">Nuestra Historia</Link>
             </Button>
           </div>
@@ -295,7 +307,7 @@ export default async function HomePage() {
             Portal <br/><span className="text-red-600">Autogestión</span>
           </h2>
           <p className="text-zinc-500 mb-8 max-w-sm mx-auto lg:mx-0 font-light italic">Acceso exclusivo para administradores del club.</p>
-          <Button variant="outline" className="w-full sm:w-auto border-white text-white bg-transparent hover:bg-white hover:text-black rounded-none uppercase font-bold tracking-widest px-8 py-6 h-auto transition-all" asChild>
+          <Button variant="outline" className="w-full sm:w-auto border-white text-white bg-transparent hover:bg-white hover:text-black rounded-none uppercase font-bold tracking-widest px-8 h-14 transition-all" asChild>
             <Link href="/admin">Ingresar al Panel</Link>
           </Button>
         </div>
