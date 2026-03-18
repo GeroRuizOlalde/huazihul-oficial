@@ -72,8 +72,9 @@ export default async function HomePage() {
 
   const yaPaso = fechaPartido ? fechaPartido < now : false;
 
-  const huazihulEsLocal =
-    partidoBD?.equipo_local?.toUpperCase().includes("HUAZIHUL") ?? false;
+  const huazihulEsLocal = (partidoBD?.equipo_local ?? "")
+  .toUpperCase()
+  .includes("HUAZIHUL");
 
   const fechaVisual = fechaPartido
     ? `${fechaPartido.toLocaleDateString("es-AR", {
@@ -173,7 +174,7 @@ export default async function HomePage() {
                   huazihulEsLocal ? "text-white" : "text-zinc-600"
                 }`}
               >
-                {partidoBD.equipo_local}
+                {partidoBD.equipo_local ?? "Local"}
               </span>
 
               <div className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-4 py-2">
@@ -201,7 +202,7 @@ export default async function HomePage() {
                   !huazihulEsLocal ? "text-white" : "text-zinc-600"
                 }`}
               >
-                {partidoBD.equipo_visitante}
+                {partidoBD.equipo_visitante ?? "Visitante"}
               </span>
             </div>
 
