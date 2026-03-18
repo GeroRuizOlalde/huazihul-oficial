@@ -1,0 +1,201 @@
+{
+  "version": 3,
+  "pages404": true,
+  "appType": "app",
+  "caseSensitive": false,
+  "basePath": "",
+  "redirects": [
+    {
+      "source": "/:path+/",
+      "destination": "/:path+",
+      "internal": true,
+      "priority": true,
+      "statusCode": 308,
+      "regex": "^(?:/((?:[^/]+?)(?:/(?:[^/]+?))*))/$"
+    }
+  ],
+  "headers": [],
+  "rewrites": {
+    "beforeFiles": [],
+    "afterFiles": [],
+    "fallback": []
+  },
+  "dynamicRoutes": [
+    {
+      "page": "/admin/noticias/editar/[id]",
+      "regex": "^/admin/noticias/editar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/noticias/editar/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/admin/partidos/editar/[id]",
+      "regex": "^/admin/partidos/editar/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/admin/partidos/editar/(?<nxtPid>[^/]+?)(?:/)?$"
+    },
+    {
+      "page": "/noticias/[id]",
+      "regex": "^/noticias/([^/]+?)(?:/)?$",
+      "routeKeys": {
+        "nxtPid": "nxtPid"
+      },
+      "namedRegex": "^/noticias/(?<nxtPid>[^/]+?)(?:/)?$"
+    }
+  ],
+  "staticRoutes": [
+    {
+      "page": "/",
+      "regex": "^/(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/(?:/)?$"
+    },
+    {
+      "page": "/_global-error",
+      "regex": "^/_global\\-error(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_global\\-error(?:/)?$"
+    },
+    {
+      "page": "/_not-found",
+      "regex": "^/_not\\-found(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/_not\\-found(?:/)?$"
+    },
+    {
+      "page": "/admin",
+      "regex": "^/admin(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin(?:/)?$"
+    },
+    {
+      "page": "/admin/galeria",
+      "regex": "^/admin/galeria(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/galeria(?:/)?$"
+    },
+    {
+      "page": "/admin/noticias",
+      "regex": "^/admin/noticias(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/noticias(?:/)?$"
+    },
+    {
+      "page": "/admin/noticias/crear",
+      "regex": "^/admin/noticias/crear(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/noticias/crear(?:/)?$"
+    },
+    {
+      "page": "/admin/partidos",
+      "regex": "^/admin/partidos(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/partidos(?:/)?$"
+    },
+    {
+      "page": "/admin/partidos/nuevo",
+      "regex": "^/admin/partidos/nuevo(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/partidos/nuevo(?:/)?$"
+    },
+    {
+      "page": "/admin/socios",
+      "regex": "^/admin/socios(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/admin/socios(?:/)?$"
+    },
+    {
+      "page": "/centenario",
+      "regex": "^/centenario(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/centenario(?:/)?$"
+    },
+    {
+      "page": "/contacto",
+      "regex": "^/contacto(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/contacto(?:/)?$"
+    },
+    {
+      "page": "/deportes",
+      "regex": "^/deportes(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/deportes(?:/)?$"
+    },
+    {
+      "page": "/deportes/hockey",
+      "regex": "^/deportes/hockey(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/deportes/hockey(?:/)?$"
+    },
+    {
+      "page": "/deportes/rugby",
+      "regex": "^/deportes/rugby(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/deportes/rugby(?:/)?$"
+    },
+    {
+      "page": "/el-club",
+      "regex": "^/el\\-club(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/el\\-club(?:/)?$"
+    },
+    {
+      "page": "/favicon.ico",
+      "regex": "^/favicon\\.ico(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/favicon\\.ico(?:/)?$"
+    },
+    {
+      "page": "/fixture",
+      "regex": "^/fixture(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/fixture(?:/)?$"
+    },
+    {
+      "page": "/galeria",
+      "regex": "^/galeria(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/galeria(?:/)?$"
+    },
+    {
+      "page": "/noticias",
+      "regex": "^/noticias(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/noticias(?:/)?$"
+    },
+    {
+      "page": "/socios",
+      "regex": "^/socios(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/socios(?:/)?$"
+    },
+    {
+      "page": "/sponsors",
+      "regex": "^/sponsors(?:/)?$",
+      "routeKeys": {},
+      "namedRegex": "^/sponsors(?:/)?$"
+    }
+  ],
+  "dataRoutes": [],
+  "rsc": {
+    "header": "rsc",
+    "varyHeader": "rsc, next-router-state-tree, next-router-prefetch, next-router-segment-prefetch",
+    "prefetchHeader": "next-router-prefetch",
+    "didPostponeHeader": "x-nextjs-postponed",
+    "contentTypeHeader": "text/x-component",
+    "suffix": ".rsc",
+    "prefetchSegmentHeader": "next-router-segment-prefetch",
+    "prefetchSegmentSuffix": ".segment.rsc",
+    "prefetchSegmentDirSuffix": ".segments",
+    "clientParamParsing": false,
+    "dynamicRSCPrerender": false
+  },
+  "rewriteHeaders": {
+    "pathHeader": "x-nextjs-rewritten-path",
+    "queryHeader": "x-nextjs-rewritten-query"
+  }
+}
