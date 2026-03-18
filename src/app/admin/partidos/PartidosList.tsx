@@ -8,9 +8,11 @@ import { useRouter } from "next/navigation";
 
 type Filtro = "Todos" | "Rugby" | "Hockey";
 
+// CORRECCIÓN RIVA: Le agregamos el '?' a deporte para que sea opcional 
+// y no rompa el build si Supabase no lo trae.
 interface Partido {
   id: number;
-  deporte: "Rugby" | "Hockey" | string;
+  deporte?: "Rugby" | "Hockey" | string; 
   fecha_programada: string;
   equipo_local: string;
   equipo_visitante: string;
@@ -32,10 +34,11 @@ export function PartidosList({
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
 
+  // CORRECCIÓN RIVA: Si no tiene deporte, asume "Rugby" para el filtro
   const partidosMostrados =
     filtro === "Todos"
       ? partidos
-      : partidos.filter((p) => p.deporte === filtro);
+      : partidos.filter((p) => (p.deporte || "Rugby") === filtro);
 
   const handleDelete = async (id: number, local: string, visita: string) => {
     const confirmar = window.confirm(
@@ -113,6 +116,9 @@ export function PartidosList({
             .toUpperCase()
             .includes("HUAZIHUL");
 
+            // CORRECCIÓN RIVA: Variable segura para el deporte
+            const deporteSeguro = partido.deporte || "Rugby";
+
             return (
               <div
                 key={partido.id}
@@ -128,13 +134,13 @@ export function PartidosList({
                     <div className="flex items-center gap-2">
                       <div
                         className={`h-2 w-2 rounded-full ${
-                          partido.deporte === "Rugby"
+                          deporteSeguro === "Rugby"
                             ? "bg-blue-500"
                             : "bg-green-500"
                         }`}
                       />
                       <span className="text-[10px] font-bold uppercase text-zinc-400">
-                        {partido.deporte}
+                        {deporteSeguro}
                       </span>
                     </div>
                   </div>
