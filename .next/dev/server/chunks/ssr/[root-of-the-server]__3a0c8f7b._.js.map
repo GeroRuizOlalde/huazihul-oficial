@@ -1,6 +1,0 @@
-{
-  "version": 3,
-  "sources": [],
-  "sections": [
-    {"offset": {"line": 24, "column": 0}, "map": {"version":3,"sources":["file:///C:/Users/geror.GERO/OneDrive/Desktop/huazihul-fase1/src/app/admin/socios/page.tsx"],"sourcesContent":["// CAMBIO TEMPORAL PARA TESTEAR\r\nconst { data: aspirantes, error } = await supabase\r\n  .from('socios_aspirantes')\r\n  .select('*');\r\n\r\nconsole.log(\"LOGUEADO?\", (await supabase.auth.getUser()).data.user?.email);\r\nconsole.log(\"ERROR?\", error);\r\nconsole.log(\"CONTEO?\", aspirantes?.length);"],"names":[],"mappings":"AAAA,+BAA+B;AAC/B,MAAM,EAAE,MAAM,UAAU,EAAE,KAAK,EAAE,GAAG,MAAM,SACvC,IAAI,CAAC,qBACL,MAAM,CAAC;AAEV,QAAQ,GAAG,CAAC,aAAa,CAAC,MAAM,SAAS,IAAI,CAAC,OAAO,EAAE,EAAE,IAAI,CAAC,IAAI,EAAE;AACpE,QAAQ,GAAG,CAAC,UAAU;AACtB,QAAQ,GAAG,CAAC,WAAW,YAAY"}}]
-}
