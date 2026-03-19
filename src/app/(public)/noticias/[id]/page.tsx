@@ -6,6 +6,8 @@ import { Badge } from "@/components/ui/badge";
 import { supabasePublic } from "@/lib/supabase/public";
 import { NoticiaSlider } from "@/components/noticias/NoticiaSlider";
 
+export const dynamic = "force-dynamic";
+
 export default async function NoticiaDetalle({
   params,
 }: {

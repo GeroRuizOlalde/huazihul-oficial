@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Clock, Users, Target } from "lucide-react";
+import { InscripcionPruebaModal } from "@/components/deportes/InscripcionPruebaModal";
 
 const categorias = [
   {
@@ -94,7 +95,7 @@ export default function HockeyPage() {
                 asChild
                 className="w-full rounded-none bg-zinc-900 py-8 font-black uppercase tracking-widest text-white transition-all hover:bg-red-600"
               >
-                <Link href="/socios">Sumate a los entrenamientos</Link>
+                <Link href="/socios">Asociate al club</Link>
               </Button>
             </div>
 
@@ -140,13 +141,7 @@ export default function HockeyPage() {
             ¿Querés probar una clase?
           </h2>
 
-          <Button
-            asChild
-            variant="outline"
-            className="h-auto rounded-none border-white px-10 py-7 text-lg font-black uppercase tracking-widest text-white hover:bg-white hover:text-red-600"
-          >
-            <Link href="/contacto">Contactar ahora</Link>
-          </Button>
+          <InscripcionPruebaModal deporte="hockey" />
         </div>
       </section>
     </div>

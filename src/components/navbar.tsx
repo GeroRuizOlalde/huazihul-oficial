@@ -18,6 +18,7 @@ export function Navbar() {
   const isInicio = pathname === "/";
   const isNoticias =
     pathname === "/noticias" || pathname.startsWith("/noticias/");
+  const isFixture = pathname === "/fixture";
   const isClubRoute = [
     "/el-club",
     "/centenario",
@@ -25,7 +26,6 @@ export function Navbar() {
     "/sponsors",
     "/contacto",
   ].includes(pathname);
-
   const isDeportesRoute =
     pathname === "/deportes" ||
     pathname.startsWith("/deportes/rugby") ||
@@ -37,7 +37,6 @@ export function Navbar() {
     } else {
       document.body.style.overflow = "";
     }
-
     return () => {
       document.body.style.overflow = "";
     };
@@ -64,7 +63,6 @@ export function Navbar() {
             className="h-10 w-10 object-contain transition-transform duration-300 group-hover:rotate-6 md:h-12 md:w-12"
             priority
           />
-
           <div className="flex flex-col">
             <span className="text-xl font-black uppercase italic leading-none tracking-tighter transition-colors group-hover:text-red-600 md:text-2xl">
               Huazihul
@@ -76,7 +74,7 @@ export function Navbar() {
         </Link>
 
         {/* NAVEGACIÓN DESKTOP */}
-        <div className="hidden h-full items-center gap-10 lg:flex">
+        <div className="hidden h-full items-center gap-8 lg:flex">
           <Link
             href="/"
             className={cn(
@@ -101,36 +99,21 @@ export function Navbar() {
             </button>
 
             <div className="invisible absolute left-1/2 top-full z-50 w-60 -translate-x-1/2 border border-zinc-800 bg-zinc-950 p-2 opacity-0 shadow-2xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
-              <Link
-                href="/el-club"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Historia
-              </Link>
-              <Link
-                href="/centenario"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Centenario
-              </Link>
-              <Link
-                href="/galeria"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Galería
-              </Link>
-              <Link
-                href="/sponsors"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Sponsors
-              </Link>
-              <Link
-                href="/contacto"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Contacto
-              </Link>
+              {[
+                { href: "/el-club", label: "Historia" },
+                { href: "/centenario", label: "Centenario" },
+                { href: "/galeria", label: "Galería" },
+                { href: "/sponsors", label: "Sponsors" },
+                { href: "/contacto", label: "Contacto" },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
 
@@ -148,24 +131,19 @@ export function Navbar() {
             </button>
 
             <div className="invisible absolute left-1/2 top-full z-50 w-60 -translate-x-1/2 border border-zinc-800 bg-zinc-950 p-2 opacity-0 shadow-2xl transition-all duration-200 group-hover:visible group-hover:opacity-100">
-              <Link
-                href="/deportes"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Portal Deportes
-              </Link>
-              <Link
-                href="/deportes/rugby"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Rugby
-              </Link>
-              <Link
-                href="/deportes/hockey"
-                className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
-              >
-                Hockey
-              </Link>
+              {[
+                { href: "/deportes", label: "Portal Deportes" },
+                { href: "/deportes/rugby", label: "Rugby" },
+                { href: "/deportes/hockey", label: "Hockey" },
+              ].map((item) => (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="block border-l-2 border-transparent px-4 py-3 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400 transition-all hover:border-red-600 hover:bg-zinc-900 hover:text-white"
+                >
+                  {item.label}
+                </Link>
+              ))}
             </div>
           </div>
 
@@ -178,10 +156,21 @@ export function Navbar() {
           >
             Noticias
           </Link>
+
+          <Link
+            href="/fixture"
+            className={cn(
+              "text-[12px] font-black uppercase tracking-[0.18em] transition-colors hover:text-red-600",
+              isFixture ? "text-red-600" : "text-zinc-400"
+            )}
+          >
+            Fixture
+          </Link>
         </div>
 
-        {/* ACCIONES */}
+        {/* ACCIONES DESKTOP + BURGER */}
         <div className="flex items-center gap-3 lg:gap-4">
+          {/* Botón desktop */}
           <div className="hidden lg:block">
             <Button
               asChild
@@ -193,6 +182,7 @@ export function Navbar() {
             </Button>
           </div>
 
+          {/* Burger mobile */}
           <button
             type="button"
             aria-label={menuAbierto ? "Cerrar menú" : "Abrir menú"}
@@ -219,11 +209,12 @@ export function Navbar() {
         )}
       >
         <div className="flex h-full flex-col overflow-y-auto px-8 pb-8 pt-28">
+          {/* Links */}
           <div className="space-y-8">
             <Link
               href="/"
               onClick={cerrarMenu}
-              className="border-b border-zinc-900 pb-4 text-4xl font-black uppercase italic tracking-tighter text-white"
+              className="block border-b border-zinc-900 pb-4 text-4xl font-black uppercase italic tracking-tighter text-white"
             >
               Inicio
             </Link>
@@ -232,43 +223,23 @@ export function Navbar() {
               <span className="text-[10px] font-black uppercase italic tracking-widest text-red-600">
                 El Club
               </span>
-
-              <div className="flex flex-col gap-6 border-l border-zinc-800 pl-4">
-                <Link
-                  href="/el-club"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Historia
-                </Link>
-                <Link
-                  href="/centenario"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Centenario
-                </Link>
-                <Link
-                  href="/galeria"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Galería
-                </Link>
-                <Link
-                  href="/sponsors"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Sponsors
-                </Link>
-                <Link
-                  href="/contacto"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Contacto
-                </Link>
+              <div className="flex flex-col gap-5 border-l border-zinc-800 pl-4">
+                {[
+                  { href: "/el-club", label: "Historia" },
+                  { href: "/centenario", label: "Centenario" },
+                  { href: "/galeria", label: "Galería" },
+                  { href: "/sponsors", label: "Sponsors" },
+                  { href: "/contacto", label: "Contacto" },
+                ].map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={cerrarMenu}
+                    className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </div>
             </div>
 
@@ -276,44 +247,43 @@ export function Navbar() {
               <span className="text-[10px] font-black uppercase italic tracking-widest text-red-600">
                 Deportes
               </span>
-
-              <div className="flex flex-col gap-6 border-l border-zinc-800 pl-4">
-                <Link
-                  href="/deportes"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Portal Deportes
-                </Link>
-                <Link
-                  href="/deportes/rugby"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Rugby
-                </Link>
-                <Link
-                  href="/deportes/hockey"
-                  onClick={cerrarMenu}
-                  className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
-                >
-                  Hockey
-                </Link>
+              <div className="flex flex-col gap-5 border-l border-zinc-800 pl-4">
+                {[
+                  { href: "/deportes", label: "Portal Deportes" },
+                  { href: "/deportes/rugby", label: "Rugby" },
+                  { href: "/deportes/hockey", label: "Hockey" },
+                ].map((item) => (
+                  <Link
+                    key={item.href}
+                    href={item.href}
+                    onClick={cerrarMenu}
+                    className="text-xl font-bold uppercase tracking-widest text-zinc-300 transition-colors hover:text-white"
+                  >
+                    {item.label}
+                  </Link>
+                ))}
               </div>
             </div>
 
-            <div className="pt-4">
-              <Link
-                href="/noticias"
-                onClick={cerrarMenu}
-                className="text-2xl font-black uppercase tracking-widest text-white"
-              >
-                Noticias
-              </Link>
-            </div>
+            <Link
+              href="/noticias"
+              onClick={cerrarMenu}
+              className="block text-2xl font-black uppercase tracking-widest text-white"
+            >
+              Noticias
+            </Link>
+
+            <Link
+              href="/fixture"
+              onClick={cerrarMenu}
+              className="block text-2xl font-black uppercase tracking-widest text-white"
+            >
+              Fixture
+            </Link>
           </div>
 
-          <div className="mt-auto pt-8">
+          {/* CTA mobile — pegado al fondo */}
+          <div className="mt-auto pt-10">
             <Button
               asChild
               className="group h-20 w-full rounded-none bg-red-600 text-sm font-black uppercase tracking-widest text-white shadow-xl shadow-red-600/30 transition-all hover:bg-white hover:text-black"

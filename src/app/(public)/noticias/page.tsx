@@ -3,6 +3,8 @@ import { ArrowRight, Newspaper } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { supabasePublic } from "@/lib/supabase/public";
 
+export const dynamic = "force-dynamic";
+
 export const metadata = {
   title: "Actualidad | Huazihul",
   description: "Todas las noticias, resultados y novedades del Club Huazihul.",

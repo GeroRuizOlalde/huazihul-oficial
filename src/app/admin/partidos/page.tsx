@@ -7,7 +7,7 @@ export default async function AdminPartidosPage() {
   const { data: partidos, error } = await supabasePublic
     .from("partidos")
     .select(
-      "id, fecha_programada, equipo_local, equipo_visitante, resultado_local, resultado_visitante, cancha"
+      "id, fecha_programada, equipo_local, equipo_visitante, resultado_local, resultado_visitante, cancha, deporte"
     )
     .order("fecha_programada", { ascending: true });
 

@@ -3,17 +3,19 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter, usePathname } from "next/navigation";
-import { 
-  LayoutDashboard, 
-  Newspaper, 
-  Camera, 
-  LogOut, 
-  ShieldCheck, 
-  Trophy, 
-  Mail, 
-  Key, 
+import {
+  LayoutDashboard,
+  Newspaper,
+  Camera,
+  LogOut,
+  ShieldCheck,
+  Trophy,
+  Mail,
+  Key,
   Loader2,
-  Users // <--- Agregamos este ícono
+  Users,
+  MessageSquare,
+  ClipboardList,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/client";
@@ -29,6 +31,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   const [isLoggingIn, setIsLoggingIn] = useState(false);
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
+  const [inscripcionesPendientes, setInscripcionesPendientes] = useState(0);
 
   const supabase = createClient();
   const router = useRouter();
@@ -39,6 +43,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const { data: { session } } = await supabase.auth.getSession();
       if (session) {
         setIsAuthenticated(true);
+        fetchBadges();
       }
       setIsLoading(false);
     };
@@ -46,20 +51,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event: any, session: any) => {
       setIsAuthenticated(!!session);
+      if (session) fetchBadges();
     });
 
     return () => subscription.unsubscribe();
   }, [supabase]);
+
+  const fetchBadges = async () => {
+    const [{ count: noLeidos }, { count: pendientes }] = await Promise.all([
+      supabase
+        .from("mensajes_contacto")
+        .select("*", { count: "exact", head: true })
+        .eq("leido", false),
+      supabase
+        .from("inscripciones_prueba")
+        .select("*", { count: "exact", head: true })
+        .eq("estado", "pendiente"),
+    ]);
+    setMensajesNoLeidos(noLeidos ?? 0);
+    setInscripcionesPendientes(pendientes ?? 0);
+  };
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoggingIn(true);
     setLoginError("");
 
-    const { error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
       setLoginError("Credenciales incorrectas. Verificá tu email y contraseña.");
@@ -107,13 +125,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Email Institucional</Label>
+                <Label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                  Email Institucional
+                </Label>
                 <div className="relative">
                   <Mail className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
-                  <Input 
-                    id="email" 
-                    type="email" 
-                    placeholder="admin@huazihul.com" 
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder="admin@huazihul.com"
                     className="pl-10 border-zinc-300 focus:border-red-600 focus:ring-1 focus:ring-red-600"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
@@ -122,12 +142,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 </div>
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">Contraseña</Label>
+                <Label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-zinc-500">
+                  Contraseña
+                </Label>
                 <div className="relative">
                   <Key className="absolute left-3 top-3 h-4 w-4 text-zinc-400" />
-                  <Input 
-                    id="password" 
-                    type="password" 
+                  <Input
+                    id="password"
+                    type="password"
                     className="pl-10 border-zinc-300 focus:border-red-600 focus:ring-1 focus:ring-red-600"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
@@ -135,7 +157,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   />
                 </div>
               </div>
-              <Button type="submit" className="w-full bg-zinc-900 hover:bg-zinc-800 text-white uppercase font-bold tracking-widest py-6 rounded-xl transition-all" disabled={isLoggingIn}>
+              <Button
+                type="submit"
+                className="w-full bg-zinc-900 hover:bg-zinc-800 text-white uppercase font-bold tracking-widest py-6 rounded-xl transition-all"
+                disabled={isLoggingIn}
+              >
                 {isLoggingIn ? <Loader2 className="w-5 h-5 animate-spin" /> : "Iniciar Sesión"}
               </Button>
             </form>
@@ -150,6 +176,33 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     );
   }
 
+  const navItem = (
+    href: string,
+    icon: React.ReactNode,
+    label: string,
+    badge?: number
+  ) => {
+    const active = href === "/admin" ? pathname === "/admin" : pathname?.includes(href);
+    return (
+      <Link
+        href={href}
+        className={`flex items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${
+          active ? "bg-red-50 text-red-600" : "text-zinc-600 hover:bg-zinc-50 hover:text-red-600"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          {icon}
+          {label}
+        </span>
+        {badge && badge > 0 ? (
+          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-full bg-red-600 px-1.5 text-[9px] font-black text-white">
+            {badge}
+          </span>
+        ) : null}
+      </Link>
+    );
+  };
+
   return (
     <div className="flex min-h-screen bg-zinc-50 font-sans text-zinc-900 selection:bg-red-600 selection:text-white">
       <aside className="hidden w-64 flex-col border-r border-zinc-200 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:flex z-10">
@@ -163,31 +216,23 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </div>
 
         <nav className="flex flex-1 flex-col gap-1 p-4">
-          <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">Menú Principal</div>
-          
-          <Link href="/admin" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname === '/admin' ? 'bg-red-50 text-red-600' : 'text-zinc-600 hover:bg-zinc-50 hover:text-red-600'}`}>
-            <LayoutDashboard className="h-4 w-4" /> Tablero
-          </Link>
-
-          <Link href="/admin/socios" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname?.includes('/admin/socios') ? 'bg-red-50 text-red-600' : 'text-zinc-600 hover:bg-zinc-50 hover:text-red-600'}`}>
-            <Users className="h-4 w-4" /> Socios
-          </Link>
-
-          <Link href="/admin/noticias" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname?.includes('/admin/noticias') ? 'bg-red-50 text-red-600' : 'text-zinc-600 hover:bg-zinc-50 hover:text-red-600'}`}>
-            <Newspaper className="h-4 w-4" /> Noticias
-          </Link>
-
-          <Link href="/admin/partidos" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname?.includes('/admin/partidos') ? 'bg-red-50 text-red-600' : 'text-zinc-600 hover:bg-zinc-50 hover:text-red-600'}`}>
-            <Trophy className="h-4 w-4" /> Partidos
-          </Link>
-
-          <Link href="/admin/galeria" className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-all ${pathname?.includes('/admin/galeria') ? 'bg-red-50 text-red-600' : 'text-zinc-600 hover:bg-zinc-50 hover:text-red-600'}`}>
-            <Camera className="h-4 w-4" /> Galería
-          </Link>
+          <div className="mb-2 px-2 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
+            Menú Principal
+          </div>
+          {navItem("/admin", <LayoutDashboard className="h-4 w-4" />, "Tablero")}
+          {navItem("/admin/socios", <Users className="h-4 w-4" />, "Socios")}
+          {navItem("/admin/noticias", <Newspaper className="h-4 w-4" />, "Noticias")}
+          {navItem("/admin/partidos", <Trophy className="h-4 w-4" />, "Partidos")}
+          {navItem("/admin/galeria", <Camera className="h-4 w-4" />, "Galería")}
+          {navItem("/admin/mensajes", <MessageSquare className="h-4 w-4" />, "Mensajes", mensajesNoLeidos)}
+          {navItem("/admin/inscripciones", <ClipboardList className="h-4 w-4" />, "Clases de Prueba", inscripcionesPendientes)}
         </nav>
 
         <div className="border-t border-zinc-100 p-4">
-          <button onClick={handleLogout} className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-500 transition-all hover:bg-red-50 hover:text-red-600">
+          <button
+            onClick={handleLogout}
+            className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-zinc-500 transition-all hover:bg-red-50 hover:text-red-600"
+          >
             <LogOut className="h-4 w-4" /> Cerrar Sesión
           </button>
         </div>
@@ -198,12 +243,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <span className="font-black uppercase tracking-tighter text-zinc-900">
             Huazihul<span className="text-red-600">Admin</span>
           </span>
-          <button onClick={handleLogout} className="text-[10px] font-bold uppercase text-red-600">Salir</button>
+          <button onClick={handleLogout} className="text-[10px] font-bold uppercase text-red-600">
+            Salir
+          </button>
         </div>
-        
-        <div className="flex-1 p-6 md:p-10 lg:p-12">
-          {children}
-        </div>
+        <div className="flex-1 p-6 md:p-10 lg:p-12">{children}</div>
       </main>
     </div>
   );

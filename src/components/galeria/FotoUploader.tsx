@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Camera, Upload, X, Loader2, CheckCircle2 } from "lucide-react";
+import { Camera, Upload, X, Loader2, CheckCircle2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import {
@@ -19,7 +19,8 @@ export function SubirFoto() {
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<string | null>(null);
   const [descripcion, setDescripcion] = useState("");
-  const [etiqueta, setEtiqueta] = useState("Mística");
+  const [etiqueta, setEtiqueta] = useState("Rugby");
+  const [nombreAutor, setNombreAutor] = useState("");
   const [uploading, setUploading] = useState(false);
   const [success, setSuccess] = useState(false);
 
@@ -39,9 +40,9 @@ export function SubirFoto() {
 
     setUploading(true);
     try {
-      // 1. Subir al Storage (Bucket: 'galeria')
+      // 1. Subir al Storage
       const fileExt = file.name.split(".").pop();
-      const fileName = `${Math.random()}.${fileExt}`;
+      const fileName = `${crypto.randomUUID()}.${fileExt}`;
       const { error: uploadError } = await supabase.storage
         .from("galeria")
         .upload(fileName, file);
@@ -49,17 +50,18 @@ export function SubirFoto() {
       if (uploadError) throw uploadError;
 
       // 2. Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from("galeria")
-        .getPublicUrl(fileName);
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("galeria").getPublicUrl(fileName);
 
-      // 3. Insertar en tabla 'galeria' con aprobado: false
+      // 3. Insertar en tabla con nombre_socio
       const { error: insertError } = await supabase.from("galeria").insert([
         {
           url: publicUrl,
-          descripcion,
+          descripcion: descripcion.trim(),
           etiqueta,
-          aprobado: false, // ¡Clave para que pase por moderación!
+          nombre_socio: nombreAutor.trim() || null,
+          aprobado: false,
         },
       ]);
 
@@ -72,11 +74,12 @@ export function SubirFoto() {
         setFile(null);
         setPreview(null);
         setDescripcion("");
-      }, 2000);
-
+        setNombreAutor("");
+        setEtiqueta("Rugby");
+      }, 2500);
     } catch (error) {
       console.error(error);
-      alert("Error al subir la foto");
+      alert("Error al subir la foto. Intentá de nuevo.");
     } finally {
       setUploading(false);
     }
@@ -85,82 +88,145 @@ export function SubirFoto() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button className="bg-red-600 hover:bg-red-700 text-white rounded-none uppercase font-bold tracking-widest px-8 py-6 h-auto shadow-lg shadow-red-600/20 transition-transform active:scale-95">
-          <Upload className="w-4 h-4 mr-2" /> Subir mi Foto
+        <Button className="h-auto rounded-none bg-red-600 px-8 py-6 font-black uppercase tracking-widest text-white shadow-lg shadow-red-600/20 transition-transform hover:bg-red-700 active:scale-95">
+          <Upload className="mr-2 h-4 w-4" />
+          Subir mi Foto
         </Button>
       </DialogTrigger>
-      <DialogContent className="sm:max-w-md border-none bg-white p-0 overflow-hidden rounded-3xl">
-        <DialogHeader className="p-8 bg-zinc-950 text-white">
+
+      <DialogContent className="overflow-hidden rounded-3xl border-none bg-white p-0 sm:max-w-md">
+        <DialogHeader className="bg-zinc-950 p-8 text-white">
           <DialogTitle className="text-2xl font-black uppercase italic tracking-tighter">
             Compartí tu <span className="text-red-600">Mística</span>
           </DialogTitle>
         </DialogHeader>
 
         {success ? (
-          <div className="p-12 flex flex-col items-center justify-center text-center">
-            <CheckCircle2 className="w-16 h-16 text-green-500 mb-4 animate-bounce" />
-            <h3 className="text-xl font-bold uppercase tracking-tight">¡Foto enviada!</h3>
-            <p className="text-zinc-500 text-sm mt-2 font-light">
+          <div className="flex flex-col items-center justify-center p-12 text-center">
+            <CheckCircle2 className="mb-4 h-16 w-16 animate-bounce text-green-500" />
+            <h3 className="text-xl font-bold uppercase tracking-tight text-zinc-900">
+              ¡Foto enviada!
+            </h3>
+            <p className="mt-2 text-sm font-light text-zinc-500">
               Un administrador la revisará pronto para publicarla.
             </p>
           </div>
         ) : (
-          <form onSubmit={handleSubmit} className="p-8 space-y-6">
-            <div className="space-y-4">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Seleccioná tu foto</Label>
-              <div className="relative group aspect-video rounded-2xl border-2 border-dashed border-zinc-200 hover:border-red-600 transition-colors overflow-hidden flex items-center justify-center bg-zinc-50">
+          <form onSubmit={handleSubmit} className="space-y-5 p-8">
+            {/* SELECTOR DE FOTO */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                Seleccioná tu foto
+              </Label>
+              <div className="group relative flex aspect-video items-center justify-center overflow-hidden rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50 transition-colors hover:border-red-600">
                 {preview ? (
                   <>
-                    <img src={preview} className="absolute inset-0 w-full h-full object-cover" />
-                    <button 
-                      type="button" 
-                      onClick={() => {setFile(null); setPreview(null);}}
-                      className="absolute top-2 right-2 bg-red-600 text-white p-1 rounded-full shadow-lg"
+                    <img
+                      src={preview}
+                      alt="Preview"
+                      className="absolute inset-0 h-full w-full object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setFile(null);
+                        setPreview(null);
+                      }}
+                      className="absolute right-2 top-2 rounded-full bg-red-600 p-1 text-white shadow-lg"
                     >
-                      <X className="w-4 h-4" />
+                      <X className="h-4 w-4" />
                     </button>
                   </>
                 ) : (
-                  <label className="flex flex-col items-center cursor-pointer">
-                    <Camera className="w-8 h-8 text-zinc-300 mb-2" />
-                    <span className="text-[10px] font-bold uppercase text-zinc-400">Click para elegir</span>
-                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} required />
+                  <label className="flex cursor-pointer flex-col items-center gap-1">
+                    <Camera className="h-8 w-8 text-zinc-300" />
+                    <span className="text-[10px] font-bold uppercase text-zinc-400">
+                      Click para elegir
+                    </span>
+                    <input
+                      type="file"
+                      className="hidden"
+                      accept="image/*"
+                      onChange={handleFileChange}
+                      required
+                    />
                   </label>
                 )}
               </div>
             </div>
 
+            {/* NOMBRE DEL AUTOR */}
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">¿Qué está pasando en la foto?</Label>
-              <Input 
-                placeholder="Ej: El tercer tiempo con los pibes..." 
-                className="rounded-xl border-zinc-200 focus:ring-red-600"
-                value={descripcion}
-                onChange={(e) => setDescripcion(e.target.value)}
-                required
+              <Label
+                htmlFor="fu-autor"
+                className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-zinc-400"
+              >
+                <User className="h-3 w-3" />
+                Tu nombre{" "}
+                <span className="normal-case tracking-normal text-zinc-400">
+                  (aparecerá como autor)
+                </span>
+              </Label>
+              <Input
+                id="fu-autor"
+                placeholder="Ej: Juan Pérez"
+                className="h-11 rounded-xl border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-red-600"
+                value={nombreAutor}
+                onChange={(e) => setNombreAutor(e.target.value)}
               />
             </div>
 
+            {/* DESCRIPCIÓN */}
             <div className="space-y-2">
-              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">Categoría</Label>
-              <select 
-                className="w-full h-10 rounded-xl border border-zinc-200 bg-white px-3 text-sm focus:ring-2 focus:ring-red-600 outline-none"
-                value={etiqueta}
-                onChange={(e) => setEtiqueta(e.target.value)}
+              <Label
+                htmlFor="fu-desc"
+                className="text-[10px] font-black uppercase tracking-widest text-zinc-400"
               >
-                <option value="Rugby">Rugby</option>
-                <option value="Hockey">Hockey</option>
-                <option value="Club">Club</option>
-                <option value="Social">Social</option>
-              </select>
+                ¿Qué está pasando en la foto?
+              </Label>
+              <Input
+                id="fu-desc"
+                required
+                placeholder="Ej: El tercer tiempo con los pibes..."
+                className="h-11 rounded-xl border-zinc-200 bg-white text-zinc-900 placeholder:text-zinc-400 focus-visible:ring-red-600"
+                value={descripcion}
+                onChange={(e) => setDescripcion(e.target.value)}
+              />
             </div>
 
-            <Button 
-              type="submit" 
-              className="w-full bg-zinc-900 hover:bg-red-600 text-white py-6 rounded-xl font-bold uppercase tracking-widest text-xs transition-all"
+            {/* CATEGORÍA */}
+            <div className="space-y-2">
+              <Label className="text-[10px] font-black uppercase tracking-widest text-zinc-400">
+                Categoría
+              </Label>
+              <div className="grid grid-cols-4 gap-2">
+                {["Rugby", "Hockey", "Club", "Social"].map((cat) => (
+                  <button
+                    key={cat}
+                    type="button"
+                    onClick={() => setEtiqueta(cat)}
+                    className={`rounded-xl border py-2.5 text-[10px] font-black uppercase tracking-wider transition-all ${
+                      etiqueta === cat
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-zinc-200 bg-zinc-50 text-zinc-500 hover:border-zinc-300"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <Button
+              type="submit"
               disabled={uploading || !file}
+              className="w-full rounded-xl bg-zinc-900 py-6 font-bold uppercase tracking-widest text-white transition-all hover:bg-red-600 disabled:opacity-50"
             >
-              {uploading ? <Loader2 className="w-5 h-5 animate-spin" /> : "Enviar para Revisión"}
+              {uploading ? (
+                <Loader2 className="h-5 w-5 animate-spin" />
+              ) : (
+                "Enviar para Revisión"
+              )}
             </Button>
           </form>
         )}
