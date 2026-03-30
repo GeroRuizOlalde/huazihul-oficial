@@ -4,7 +4,7 @@ import { useEffect, useState } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { ArrowRight, ChevronDown, Menu, X } from "lucide-react";
+import { ArrowRight, ChevronDown, Menu, X, ShoppingBag } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -16,9 +16,10 @@ export function Navbar() {
   const cerrarMenu = () => setMenuAbierto(false);
 
   const isInicio = pathname === "/";
-  const isNoticias =
-    pathname === "/noticias" || pathname.startsWith("/noticias/");
+  const isNoticias = pathname === "/noticias" || pathname.startsWith("/noticias/");
   const isFixture = pathname === "/fixture";
+  const isTienda = pathname === "/tienda"; 
+  
   const isClubRoute = [
     "/el-club",
     "/centenario",
@@ -26,11 +27,13 @@ export function Navbar() {
     "/sponsors",
     "/contacto",
   ].includes(pathname);
+
   const isDeportesRoute =
     pathname === "/deportes" ||
     pathname.startsWith("/deportes/rugby") ||
     pathname.startsWith("/deportes/hockey");
 
+  // Bloquear scroll cuando el menú móvil está abierto
   useEffect(() => {
     if (menuAbierto) {
       document.body.style.overflow = "hidden";
@@ -42,6 +45,7 @@ export function Navbar() {
     };
   }, [menuAbierto]);
 
+  // Cerrar menú automáticamente al cambiar de ruta
   useEffect(() => {
     setMenuAbierto(false);
   }, [pathname]);
@@ -49,11 +53,12 @@ export function Navbar() {
   return (
     <nav className="sticky top-0 z-[100] w-full border-b border-zinc-800 bg-black text-white shadow-xl">
       <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between px-6 md:px-8">
-        {/* LOGO */}
+        
+        {/* LOGO Y TÍTULO (TODO EL BLOQUE VUELVE A HOME) */}
         <Link
           href="/"
           onClick={cerrarMenu}
-          className="group z-[120] flex items-center gap-3"
+          className="group z-[120] flex items-center gap-3 cursor-pointer"
         >
           <Image
             src="/images/logohuazi.png"
@@ -67,7 +72,7 @@ export function Navbar() {
             <span className="text-xl font-black uppercase italic leading-none tracking-tighter transition-colors group-hover:text-red-600 md:text-2xl">
               Huazihul
             </span>
-            <span className="mt-1 text-[8px] font-bold uppercase leading-none tracking-[0.4em] text-zinc-500">
+            <span className="mt-1 text-[8px] font-bold uppercase leading-none tracking-[0.4em] text-zinc-500 transition-colors group-hover:text-zinc-300">
               San Juan
             </span>
           </div>
@@ -85,7 +90,7 @@ export function Navbar() {
             Inicio
           </Link>
 
-          {/* EL CLUB */}
+          {/* EL CLUB DROPDOWN */}
           <div className="group relative flex h-full items-center">
             <button
               type="button"
@@ -117,7 +122,7 @@ export function Navbar() {
             </div>
           </div>
 
-          {/* DEPORTES */}
+          {/* DEPORTES DROPDOWN */}
           <div className="group relative flex h-full items-center">
             <button
               type="button"
@@ -166,11 +171,22 @@ export function Navbar() {
           >
             Fixture
           </Link>
+
+          {/* LINK TIENDA DESKTOP */}
+          <Link
+            href="/tienda"
+            className={cn(
+              "flex items-center gap-2 text-[12px] font-black uppercase tracking-[0.18em] transition-colors hover:text-red-600",
+              isTienda ? "text-red-600" : "text-zinc-400"
+            )}
+          >
+            <ShoppingBag className="h-3.5 w-3.5" />
+            Tienda
+          </Link>
         </div>
 
-        {/* ACCIONES DESKTOP + BURGER */}
+        {/* ACCIONES (SOCIOS + BURGER) */}
         <div className="flex items-center gap-3 lg:gap-4">
-          {/* Botón desktop */}
           <div className="hidden lg:block">
             <Button
               asChild
@@ -182,7 +198,6 @@ export function Navbar() {
             </Button>
           </div>
 
-          {/* Burger mobile */}
           <button
             type="button"
             aria-label={menuAbierto ? "Cerrar menú" : "Abrir menú"}
@@ -199,7 +214,7 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* MENÚ MÓVIL */}
+      {/* MENÚ MÓVIL FULLSCREEN */}
       <div
         className={cn(
           "fixed inset-0 z-[110] flex h-screen w-full flex-col bg-zinc-950 transition-all duration-500 ease-in-out lg:hidden",
@@ -209,16 +224,19 @@ export function Navbar() {
         )}
       >
         <div className="flex h-full flex-col overflow-y-auto px-8 pb-8 pt-28">
-          {/* Links */}
           <div className="space-y-8">
             <Link
               href="/"
               onClick={cerrarMenu}
-              className="block border-b border-zinc-900 pb-4 text-4xl font-black uppercase italic tracking-tighter text-white"
+              className={cn(
+                "block border-b border-zinc-900 pb-4 text-4xl font-black uppercase italic tracking-tighter transition-colors",
+                isInicio ? "text-red-600" : "text-white"
+              )}
             >
               Inicio
             </Link>
 
+            {/* SECCIÓN CLUB MOBILE */}
             <div className="space-y-4">
               <span className="text-[10px] font-black uppercase italic tracking-widest text-red-600">
                 El Club
@@ -243,6 +261,7 @@ export function Navbar() {
               </div>
             </div>
 
+            {/* SECCIÓN DEPORTES MOBILE */}
             <div className="space-y-4">
               <span className="text-[10px] font-black uppercase italic tracking-widest text-red-600">
                 Deportes
@@ -265,10 +284,25 @@ export function Navbar() {
               </div>
             </div>
 
+            {/* OTROS LINKS MOBILE */}
+            <Link
+              href="/tienda"
+              onClick={cerrarMenu}
+              className={cn(
+                "block text-2xl font-black uppercase tracking-widest transition-colors",
+                isTienda ? "text-red-600" : "text-white"
+              )}
+            >
+              Tienda
+            </Link>
+
             <Link
               href="/noticias"
               onClick={cerrarMenu}
-              className="block text-2xl font-black uppercase tracking-widest text-white"
+              className={cn(
+                "block text-2xl font-black uppercase tracking-widest transition-colors",
+                isNoticias ? "text-red-600" : "text-white"
+              )}
             >
               Noticias
             </Link>
@@ -276,13 +310,16 @@ export function Navbar() {
             <Link
               href="/fixture"
               onClick={cerrarMenu}
-              className="block text-2xl font-black uppercase tracking-widest text-white"
+              className={cn(
+                "block text-2xl font-black uppercase tracking-widest transition-colors",
+                isFixture ? "text-red-600" : "text-white"
+              )}
             >
               Fixture
             </Link>
           </div>
 
-          {/* CTA mobile — pegado al fondo */}
+          {/* BOTÓN HACETE SOCIO MOBILE */}
           <div className="mt-auto pt-10">
             <Button
               asChild
