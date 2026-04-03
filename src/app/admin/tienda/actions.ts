@@ -4,7 +4,75 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { supabaseAdmin } from "@/lib/supabase/admin";
-import { getSupabaseStoragePath } from "@/lib/utils";
+import { getErrorMessage, getSupabaseStoragePath } from "@/lib/utils";
+
+type ActualizarProductoPayload = {
+  id: string;
+  precio: number;
+  precioPromocional: number | null;
+  stock: number;
+};
+
+function parsePrecio(value: FormDataEntryValue | null) {
+  const precio = Number(value);
+
+  if (!Number.isFinite(precio) || precio <= 0) {
+    throw new Error("Completa un precio valido.");
+  }
+
+  return precio;
+}
+
+function parseStock(value: FormDataEntryValue | null) {
+  const stock = Number(value);
+
+  if (!Number.isFinite(stock) || stock < 0) {
+    throw new Error("El stock debe ser 0 o mayor.");
+  }
+
+  return Math.floor(stock);
+}
+
+function parsePrecioPromocional(
+  value: FormDataEntryValue | null,
+  precio: number
+) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return null;
+  }
+
+  const precioPromocional = Number(rawValue);
+
+  if (!Number.isFinite(precioPromocional) || precioPromocional <= 0) {
+    throw new Error("El precio promocional debe ser mayor a 0.");
+  }
+
+  if (precioPromocional >= precio) {
+    throw new Error("El precio promocional debe ser menor al precio normal.");
+  }
+
+  return precioPromocional;
+}
+
+function withSchemaHint(error: unknown) {
+  const message = getErrorMessage(error);
+
+  if (/precio_promocional|stock/i.test(message)) {
+    return new Error(
+      "Faltan las columnas stock y/o precio_promocional en la tabla productos. Ejecuta la migracion SQL antes de usar esta funcion."
+    );
+  }
+
+  return error instanceof Error ? error : new Error(message);
+}
+
+function revalidateTienda() {
+  revalidatePath("/admin/tienda");
+  revalidatePath("/tienda");
+  revalidatePath("/");
+}
 
 export async function subirProducto(formData: FormData) {
   await requireAdminAccess();
@@ -12,11 +80,16 @@ export async function subirProducto(formData: FormData) {
   const nombre = String(formData.get("nombre") ?? "").trim();
   const descripcion = String(formData.get("descripcion") ?? "").trim();
   const categoria = String(formData.get("categoria") ?? "").trim();
-  const precio = Number(formData.get("precio"));
+  const precio = parsePrecio(formData.get("precio"));
+  const precioPromocional = parsePrecioPromocional(
+    formData.get("precio_promocional"),
+    precio
+  );
+  const stock = parseStock(formData.get("stock"));
   const imagen = formData.get("imagen");
 
-  if (!nombre || !categoria || Number.isNaN(precio) || precio <= 0) {
-    throw new Error("Completa nombre, categoria y un precio valido.");
+  if (!nombre || !categoria) {
+    throw new Error("Completa nombre y categoria.");
   }
 
   if (!(imagen instanceof File) || imagen.size === 0) {
@@ -54,6 +127,9 @@ export async function subirProducto(formData: FormData) {
       nombre,
       descripcion: descripcion || null,
       precio,
+      precio_promocional: precioPromocional,
+      stock,
+      en_stock: stock > 0,
       categoria,
       imagen_url: publicUrl,
     },
@@ -61,12 +137,62 @@ export async function subirProducto(formData: FormData) {
 
   if (dbError) {
     await supabaseAdmin.storage.from("tienda").remove([fileName]);
-    throw dbError;
+    throw withSchemaHint(dbError);
   }
 
-  revalidatePath("/admin/tienda");
-  revalidatePath("/tienda");
-  revalidatePath("/");
+  revalidateTienda();
+}
+
+export async function actualizarProductoAction({
+  id,
+  precio,
+  precioPromocional,
+  stock,
+}: ActualizarProductoPayload) {
+  await requireAdminAccess();
+
+  const productoId = String(id ?? "").trim();
+  const precioFinal = Number(precio);
+  const stockFinal = Math.floor(Number(stock));
+  const precioPromocionalFinal =
+    precioPromocional === null ? null : Number(precioPromocional);
+
+  if (!productoId) {
+    throw new Error("Producto invalido.");
+  }
+
+  if (!Number.isFinite(precioFinal) || precioFinal <= 0) {
+    throw new Error("El precio debe ser mayor a 0.");
+  }
+
+  if (!Number.isFinite(stockFinal) || stockFinal < 0) {
+    throw new Error("El stock debe ser 0 o mayor.");
+  }
+
+  if (
+    precioPromocionalFinal !== null &&
+    (!Number.isFinite(precioPromocionalFinal) ||
+      precioPromocionalFinal <= 0 ||
+      precioPromocionalFinal >= precioFinal)
+  ) {
+    throw new Error("El precio promocional debe ser mayor a 0 y menor al precio.");
+  }
+
+  const { error } = await supabaseAdmin
+    .from("productos")
+    .update({
+      precio: precioFinal,
+      precio_promocional: precioPromocionalFinal,
+      stock: stockFinal,
+      en_stock: stockFinal > 0,
+    })
+    .eq("id", productoId);
+
+  if (error) {
+    throw withSchemaHint(error);
+  }
+
+  revalidateTienda();
 }
 
 export async function eliminarProductoAction(id: string, imagenUrl: string) {
@@ -84,7 +210,5 @@ export async function eliminarProductoAction(id: string, imagenUrl: string) {
     throw error;
   }
 
-  revalidatePath("/admin/tienda");
-  revalidatePath("/tienda");
-  revalidatePath("/");
+  revalidateTienda();
 }

@@ -15,6 +15,12 @@ import {
 
 import { supabasePublic } from "@/lib/supabase/public";
 import { Countdown } from "@/components/centenario/Countdown";
+import {
+  getProductoPrecio,
+  getProductoPrecioPromocional,
+  isProductoDisponible,
+  type Producto,
+} from "@/lib/tienda";
 
 export const revalidate = 60;
 
@@ -67,10 +73,9 @@ export default async function HomePage() {
 
     supabase
       .from("productos")
-      .select("id, nombre, precio, imagen_url, categoria")
-      .eq("en_stock", true)
+      .select("*")
       .order("creado_en", { ascending: false })
-      .limit(4),
+      .limit(8),
   ]);
 
   if (noticiasError) console.error("Error cargando noticias:", noticiasError);
@@ -79,7 +84,9 @@ export default async function HomePage() {
   if (productosError) console.error("Error cargando productos:", productosError);
 
   const noticias = noticiasBD ?? [];
-  const productos = productosBD ?? [];
+  const productos = ((productosBD ?? []) as Producto[])
+    .filter(isProductoDisponible)
+    .slice(0, 4);
   const partidoBD = proximo || ultimo;
 
   const fechaPartido = partidoBD?.fecha_programada
@@ -345,7 +352,20 @@ export default async function HomePage() {
                   <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
                 </div>
                 <h3 className="text-xs font-black uppercase italic tracking-tighter text-zinc-900 mb-1 truncate">{prod.nombre}</h3>
-                <p className="text-sm font-bold text-red-600">${prod.precio.toLocaleString('es-AR')}</p>
+                {getProductoPrecioPromocional(prod) ? (
+                  <div className="flex items-center gap-2">
+                    <span className="text-[11px] font-bold text-zinc-400 line-through">
+                      ${getProductoPrecio(prod).toLocaleString('es-AR')}
+                    </span>
+                    <p className="text-sm font-bold text-red-600">
+                      ${getProductoPrecioPromocional(prod)?.toLocaleString('es-AR')}
+                    </p>
+                  </div>
+                ) : (
+                  <p className="text-sm font-bold text-red-600">
+                    ${getProductoPrecio(prod).toLocaleString('es-AR')}
+                  </p>
+                )}
               </Link>
             ))}
           </div>
