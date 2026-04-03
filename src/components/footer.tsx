@@ -1,11 +1,11 @@
+import Image from "next/image";
 import Link from "next/link";
 import { 
   Instagram, 
   Mail, 
   MapPin, 
   Phone, 
-  ArrowUpRight, 
-  ShieldCheck 
+  ArrowUpRight 
 } from "lucide-react";
 
 export function Footer() {
@@ -23,10 +23,12 @@ export function Footer() {
           <div className="lg:col-span-5 space-y-8">
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 bg-white flex items-center justify-center rounded-2xl shadow-xl shadow-red-600/5 p-2 overflow-hidden">
-                <img 
+                <Image
                   src="/images/logohuazi.png"
-                  alt="Huazihul Escudo" 
-                  className="w-full h-full object-contain"
+                  alt="Huazihul Escudo"
+                  width={64}
+                  height={64}
+                  className="h-full w-full object-contain"
                 />
               </div>
               <div>

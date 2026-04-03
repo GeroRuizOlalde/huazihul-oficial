@@ -1,48 +1,90 @@
 "use server";
 
-import { supabaseAdmin } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 
-export async function subirProducto(formData: FormData) {
-  const nombre = formData.get("nombre") as string;
-  const descripcion = formData.get("descripcion") as string;
-  const precio = parseFloat(formData.get("precio") as string);
-  const categoria = formData.get("categoria") as string;
-  const imagen = formData.get("imagen") as File;
+import { requireAdminAccess } from "@/lib/auth/admin";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getSupabaseStoragePath } from "@/lib/utils";
 
-  // 1. Subir a Storage
-  const fileExt = imagen.name.split('.').pop();
-  const fileName = `${Math.random()}.${fileExt}`;
+export async function subirProducto(formData: FormData) {
+  await requireAdminAccess();
+
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const categoria = String(formData.get("categoria") ?? "").trim();
+  const precio = Number(formData.get("precio"));
+  const imagen = formData.get("imagen");
+
+  if (!nombre || !categoria || Number.isNaN(precio) || precio <= 0) {
+    throw new Error("Completa nombre, categoria y un precio valido.");
+  }
+
+  if (!(imagen instanceof File) || imagen.size === 0) {
+    throw new Error("Debes subir una imagen valida.");
+  }
+
+  if (!imagen.type.startsWith("image/")) {
+    throw new Error("El archivo debe ser una imagen.");
+  }
+
+  if (imagen.size > 5 * 1024 * 1024) {
+    throw new Error("La imagen supera el limite de 5 MB.");
+  }
+
+  const fileExt = imagen.name.split(".").pop()?.toLowerCase() || "jpg";
+  const fileName = `productos/${crypto.randomUUID()}.${fileExt}`;
 
   const { error: uploadError } = await supabaseAdmin.storage
-    .from('tienda')
-    .upload(fileName, imagen);
+    .from("tienda")
+    .upload(fileName, imagen, {
+      cacheControl: "3600",
+      upsert: false,
+    });
 
-  if (uploadError) throw uploadError;
+  if (uploadError) {
+    throw uploadError;
+  }
 
-  // 2. URL Pública
-  const { data: { publicUrl } } = supabaseAdmin.storage
-    .from('tienda')
-    .getPublicUrl(fileName);
+  const {
+    data: { publicUrl },
+  } = supabaseAdmin.storage.from("tienda").getPublicUrl(fileName);
 
-  // 3. Insertar DB
-  const { error: dbError } = await supabaseAdmin
-    .from('productos')
-    .insert([{ nombre, descripcion, precio, categoria, imagen_url: publicUrl }]);
+  const { error: dbError } = await supabaseAdmin.from("productos").insert([
+    {
+      nombre,
+      descripcion: descripcion || null,
+      precio,
+      categoria,
+      imagen_url: publicUrl,
+    },
+  ]);
 
-  if (dbError) throw dbError;
+  if (dbError) {
+    await supabaseAdmin.storage.from("tienda").remove([fileName]);
+    throw dbError;
+  }
 
   revalidatePath("/admin/tienda");
   revalidatePath("/tienda");
+  revalidatePath("/");
 }
 
 export async function eliminarProductoAction(id: string, imagenUrl: string) {
-  const fileName = imagenUrl.split('/').pop();
+  await requireAdminAccess();
+
+  const fileName = getSupabaseStoragePath(imagenUrl, "tienda");
+
   if (fileName) {
-    await supabaseAdmin.storage.from('tienda').remove([fileName]);
+    await supabaseAdmin.storage.from("tienda").remove([fileName]);
   }
-  await supabaseAdmin.from('productos').delete().eq('id', id);
-  
+
+  const { error } = await supabaseAdmin.from("productos").delete().eq("id", id);
+
+  if (error) {
+    throw error;
+  }
+
   revalidatePath("/admin/tienda");
   revalidatePath("/tienda");
+  revalidatePath("/");
 }

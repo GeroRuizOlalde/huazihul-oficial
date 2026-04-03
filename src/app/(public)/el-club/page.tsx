@@ -92,8 +92,8 @@ export default function ElClubPage() {
                   del Primer Club
                 </h2>
                 <p className="text-lg font-bold italic text-red-600">
-                  "Bautizaron al club con el nombre del cacique: el orgullo de
-                  ser Huazihul."
+                  &quot;Bautizaron al club con el nombre del cacique: el orgullo
+                  de ser Huazihul.&quot;
                 </p>
               </div>
             </div>

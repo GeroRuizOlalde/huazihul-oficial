@@ -1,10 +1,17 @@
 import Link from "next/link";
 import { Plus, Trophy } from "lucide-react";
-import { supabasePublic } from "@/lib/supabase/public";
+
+import { createClient } from "@/lib/supabase/server";
+
 import { PartidosList } from "./PartidosList";
 
+export const dynamic = "force-dynamic";
+export const revalidate = 0;
+
 export default async function AdminPartidosPage() {
-  const { data: partidos, error } = await supabasePublic
+  const supabase = await createClient();
+
+  const { data: partidos, error } = await supabase
     .from("partidos")
     .select(
       "id, fecha_programada, equipo_local, equipo_visitante, resultado_local, resultado_visitante, cancha, deporte"
@@ -19,14 +26,13 @@ export default async function AdminPartidosPage() {
 
   return (
     <div className="mx-auto max-w-6xl animate-in fade-in slide-in-from-bottom-4 duration-500">
-      {/* HEADER */}
       <div className="mb-10 flex flex-col justify-between gap-4 md:flex-row md:items-center">
         <div>
           <h1 className="mb-1 text-3xl font-black uppercase tracking-tighter text-zinc-900">
-            Gestión de <span className="text-red-600">Partidos</span>
+            Gestion de <span className="text-red-600">Partidos</span>
           </h1>
           <p className="text-sm font-light text-zinc-500">
-            Módulo de fixture automatizado por cronología.
+            Modulo de fixture automatizado por cronologia.
           </p>
         </div>
 
@@ -39,7 +45,6 @@ export default async function AdminPartidosPage() {
         </Link>
       </div>
 
-      {/* LISTADO */}
       <div className="grid grid-cols-1 gap-4">
         {listaPartidos.length > 0 ? (
           <PartidosList initialPartidos={listaPartidos} />
@@ -50,7 +55,7 @@ export default async function AdminPartidosPage() {
               No hay partidos cargados
             </p>
             <p className="mt-1 text-xs text-zinc-400">
-              Cargá un encuentro para que aparezca en la gestión.
+              Carga un encuentro para que aparezca en la gestion.
             </p>
           </div>
         )}

@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/utils";
 
 export default function NuevoPartidoPage() {
   const router = useRouter();
@@ -61,8 +62,8 @@ export default function NuevoPartidoPage() {
       router.push("/admin/partidos");
       router.refresh();
 
-    } catch (err: any) {
-      alert("Error al guardar: " + err.message);
+    } catch (error: unknown) {
+      alert(`Error al guardar: ${getErrorMessage(error)}`);
     } finally {
       setIsSaving(false);
     }

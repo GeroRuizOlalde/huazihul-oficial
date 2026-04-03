@@ -46,10 +46,6 @@ export function Navbar() {
   }, [menuAbierto]);
 
   // Cerrar menú automáticamente al cambiar de ruta
-  useEffect(() => {
-    setMenuAbierto(false);
-  }, [pathname]);
-
   return (
     <nav className="sticky top-0 z-[100] w-full border-b border-zinc-800 bg-black text-white shadow-xl">
       <div className="mx-auto flex h-20 w-full max-w-[1440px] items-center justify-between px-6 md:px-8">

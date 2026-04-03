@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +15,8 @@ import {
 
 import { supabasePublic } from "@/lib/supabase/public";
 import { Countdown } from "@/components/centenario/Countdown";
+
+export const revalidate = 60;
 
 const IMAGENES = {
   hero: "/images/fondo.jpg",
@@ -287,7 +290,13 @@ export default async function HomePage() {
               {noticias.map((news) => (
                 <Link href={`/noticias/${news.id}`} key={news.id} className="group flex h-full flex-col border-b-4 border-transparent bg-white p-4 shadow-sm transition-shadow hover:border-red-600 hover:shadow-xl">
                   <div className="relative mb-6 aspect-video w-full overflow-hidden bg-zinc-200">
-                    <img src={news.imagen_url || "/images/fondo.jpg"} alt={news.titulo} className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                    <Image
+                      src={news.imagen_url || "/images/fondo.jpg"}
+                      alt={news.titulo}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                      className="object-cover transition-transform duration-500 group-hover:scale-105"
+                    />
                   </div>
                   <Badge className="mb-4 w-fit rounded-none border border-red-600 bg-transparent text-[9px] uppercase text-red-600">
                     {news.etiqueta ?? "Novedad"}
@@ -326,7 +335,13 @@ export default async function HomePage() {
             {productos.map((prod) => (
               <Link key={prod.id} href="/tienda" className="group relative">
                 <div className="aspect-[3/4] bg-zinc-50 overflow-hidden mb-4 relative">
-                  <img src={prod.imagen_url} alt={prod.nombre} className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
+                  <Image
+                    src={prod.imagen_url}
+                    alt={prod.nombre}
+                    fill
+                    sizes="(max-width: 768px) 50vw, 25vw"
+                    className="object-cover transition-transform duration-700 group-hover:scale-105"
+                  />
                   <div className="absolute inset-0 bg-black/5 group-hover:bg-black/0 transition-colors" />
                 </div>
                 <h3 className="text-xs font-black uppercase italic tracking-tighter text-zinc-900 mb-1 truncate">{prod.nombre}</h3>

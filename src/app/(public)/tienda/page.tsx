@@ -1,156 +1,174 @@
-"use client";
+import Link from "next/link";
+import { ArrowRight, MessageCircle, ShieldCheck, ShoppingBag, Sparkles } from "lucide-react";
 
-import { useState, useEffect } from "react";
-import { ShoppingBag, Loader2, Plus, ArrowRight } from "lucide-react";
+import { TiendaCatalogo, type Producto } from "@/components/tienda/TiendaCatalogo";
+import { Badge } from "@/components/ui/badge";
 import { supabasePublic } from "@/lib/supabase/public";
-import { cn } from "@/lib/utils";
 
-type Producto = {
-  id: string;
-  nombre: string;
-  descripcion: string;
-  precio: number;
-  imagen_url: string;
-  categoria: string;
-  en_stock: boolean;
+export const revalidate = 60;
+
+export const metadata = {
+  title: "Boutique Oficial | Huazihul",
+  description:
+    "Indumentaria oficial del Club Huazihul. Consulta stock y coordina tu compra por WhatsApp.",
 };
 
-const WHATSAPP_CLUB = "5492640000000"; 
+const WHATSAPP_CLUB = "5492645771409";
 
-export default function TiendaPremium() {
-  const [productos, setProductos] = useState<Producto[]>([]);
-  const [cargando, setCargando] = useState(true);
-  const [filtro, setFiltro] = useState("Todos");
+export default async function TiendaPage() {
+  const { data, error } = await supabasePublic
+    .from("productos")
+    .select("id, nombre, descripcion, precio, imagen_url, categoria, en_stock")
+    .eq("en_stock", true)
+    .order("creado_en", { ascending: false });
 
-  useEffect(() => {
-    const fetchProductos = async () => {
-      try {
-        const { data, error } = await supabasePublic
-          .from("productos")
-          .select("*")
-          .eq("en_stock", true)
-          .order("creado_en", { ascending: false });
-        if (error) throw error;
-        setProductos(data || []);
-      } catch (error) {
-        console.error("Error:", error);
-      } finally {
-        setCargando(false);
-      }
-    };
-    fetchProductos();
-  }, []);
+  if (error) {
+    console.error("Error cargando productos:", error);
+  }
 
-  const categorias = ["Todos", "Rugby", "Hockey", "Merchandising", "Accesorios"];
-  const filtrados = filtro === "Todos" ? productos : productos.filter(p => p.categoria === filtro);
+  const productos: Producto[] = data ?? [];
+  const categoriasActivas = new Set(productos.map((producto) => producto.categoria)).size;
 
   return (
-    <div className="min-h-screen bg-white text-zinc-900 font-sans">
-      
-      {/* 1. NAVBAR DE TIENDA (SUBTLE) */}
-      <div className="pt-32 pb-12 px-6 border-b border-zinc-100">
-        <div className="container mx-auto max-w-7xl">
-          <div className="flex flex-col md:flex-row md:items-end justify-between gap-8">
-            <div>
-              <h1 className="text-6xl md:text-8xl font-black uppercase tracking-tighter italic leading-none mb-4">
-                Boutique<span className="text-red-600">.</span>
-              </h1>
-              <p className="text-zinc-500 font-medium tracking-tight uppercase text-xs">
-                Indumentaria oficial de alto rendimiento — San Juan, Argentina
+    <div className="min-h-screen bg-white font-sans text-zinc-900 selection:bg-red-600 selection:text-white">
+      <section className="relative overflow-hidden bg-zinc-950 px-6 pb-16 pt-32 text-white md:px-8 md:pb-24">
+        <div className="absolute inset-0 bg-[radial-gradient(circle_at_top_right,rgba(220,38,38,0.22),transparent_30%),radial-gradient(circle_at_bottom_left,rgba(255,255,255,0.08),transparent_28%)]" />
+        <div className="absolute inset-0 opacity-20 [background-image:linear-gradient(to_right,rgba(255,255,255,0.08)_1px,transparent_1px),linear-gradient(to_bottom,rgba(255,255,255,0.08)_1px,transparent_1px)] [background-size:72px_72px]" />
+
+        <div className="relative mx-auto grid w-full max-w-7xl gap-12 lg:grid-cols-[1.2fr_0.8fr] lg:items-end">
+          <div>
+            <Badge className="mb-6 rounded-none border-none bg-red-600 px-4 py-1.5 text-[10px] font-black uppercase tracking-[0.3em] text-white">
+              Boutique Oficial
+            </Badge>
+
+            <h1 className="max-w-4xl text-5xl font-black uppercase italic leading-[0.88] tracking-tighter text-white md:text-7xl lg:text-[5.5rem]">
+              Vesti la <span className="text-red-600">mistica</span> del club.
+            </h1>
+
+            <p className="mt-6 max-w-2xl text-base font-light leading-relaxed text-zinc-300 md:text-xl">
+              Un catalogo pensado para que encontrar una prenda sea tan simple como
+              verla, enamorarte y consultarla. Stock oficial, atencion directa y
+              coordinacion por WhatsApp con el club.
+            </p>
+
+            <div className="mt-10 flex flex-col gap-4 sm:flex-row">
+              <a
+                href={`https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent(
+                  "Hola! Quiero consultar por la boutique oficial de Huazihul."
+                )}`}
+                target="_blank"
+                rel="noreferrer"
+                className="group inline-flex h-14 items-center justify-center rounded-full bg-red-600 px-8 text-xs font-black uppercase tracking-[0.24em] text-white shadow-xl shadow-red-600/20 transition-all hover:bg-white hover:text-zinc-950"
+              >
+                Hablar por WhatsApp
+                <MessageCircle className="ml-2 h-4 w-4 transition-transform group-hover:translate-x-1" />
+              </a>
+
+              <Link
+                href="#catalogo"
+                className="inline-flex h-14 items-center justify-center rounded-full border border-white/20 bg-white/5 px-8 text-xs font-black uppercase tracking-[0.24em] text-white backdrop-blur-sm transition-colors hover:border-white hover:bg-white hover:text-zinc-950"
+              >
+                Ver catalogo
+                <ArrowRight className="ml-2 h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-1">
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500">
+                Stock Activo
+              </p>
+              <p className="mt-3 text-4xl font-black tracking-tighter text-white">
+                {productos.length}
+              </p>
+              <p className="mt-2 text-sm font-light text-zinc-400">
+                Productos visibles y listos para consultar.
               </p>
             </div>
-            
-            {/* FILTROS ESTILO STADE TOULOUSAIN */}
-            <nav className="flex flex-wrap gap-x-8 gap-y-4">
-              {categorias.map((cat) => (
-                <button
-                  key={cat}
-                  onClick={() => setFiltro(cat)}
-                  className={cn(
-                    "text-[10px] font-black uppercase tracking-[0.2em] transition-colors relative pb-2",
-                    filtro === cat ? "text-red-600" : "text-zinc-400 hover:text-zinc-900"
-                  )}
-                >
-                  {cat}
-                  {filtro === cat && (
-                    <span className="absolute bottom-0 left-0 w-full h-0.5 bg-red-600 animate-in fade-in zoom-in duration-300" />
-                  )}
-                </button>
-              ))}
-            </nav>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+              <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500">
+                Lineas
+              </p>
+              <p className="mt-3 text-4xl font-black tracking-tighter text-white">
+                {categoriasActivas || 0}
+              </p>
+              <p className="mt-2 text-sm font-light text-zinc-400">
+                Rugby, hockey, accesorios y mas.
+              </p>
+            </div>
+
+            <div className="rounded-[2rem] border border-white/10 bg-white/5 p-6 backdrop-blur-sm">
+              <div className="flex items-center gap-3">
+                <ShieldCheck className="h-5 w-5 text-red-500" />
+                <p className="text-[10px] font-black uppercase tracking-[0.3em] text-red-500">
+                  Compra Guiada
+                </p>
+              </div>
+              <p className="mt-3 text-lg font-black uppercase tracking-tight text-white">
+                Sin vueltas.
+              </p>
+              <p className="mt-2 text-sm font-light leading-relaxed text-zinc-400">
+                Cada producto tiene acceso directo a consulta y coordinacion con el club.
+              </p>
+            </div>
           </div>
         </div>
-      </div>
+      </section>
 
-      <div className="container mx-auto max-w-7xl px-6 py-16">
-        {cargando ? (
-          <div className="h-96 flex items-center justify-center">
-            <Loader2 className="w-8 h-8 animate-spin text-red-600" />
+      <section className="border-y border-zinc-100 bg-white px-6 py-6 md:px-8">
+        <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 md:flex-row md:items-center md:justify-between">
+          <div className="flex items-center gap-3 text-zinc-900">
+            <Sparkles className="h-4 w-4 text-red-600" />
+            <p className="text-xs font-black uppercase tracking-[0.28em]">
+              Seleccion oficial Huazihul
+            </p>
           </div>
-        ) : (
-          /* 2. GRILLA LIMPIA */
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-x-10 gap-y-16">
-            {filtrados.map((item) => (
-              <div key={item.id} className="group cursor-pointer">
-                
-                {/* IMAGEN: Sin bordes, fondo neutro, zoom suave */}
-                <div className="relative aspect-[3/4] bg-zinc-50 overflow-hidden mb-6">
-                  <img 
-                    src={item.imagen_url} 
-                    alt={item.nombre}
-                    className="w-full h-full object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                  />
-                  
-                  {/* ACCIÓN RÁPIDA (Solo aparece en Desktop al hacer hover) */}
-                  <div className="absolute inset-0 bg-black/5 opacity-0 group-hover:opacity-100 transition-opacity duration-300 flex items-end p-6">
-                    <button 
-                      onClick={() => {
-                        const msg = `Hola! Quiero consultar por: ${item.nombre}`;
-                        window.open(`https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent(msg)}`, '_blank');
-                      }}
-                      className="w-full bg-white text-zinc-900 py-4 font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-2 transform translate-y-4 group-hover:translate-y-0 transition-transform duration-500 shadow-2xl"
-                    >
-                      Consultar disponibilidad <Plus className="w-3 h-3" />
-                    </button>
-                  </div>
-                </div>
 
-                {/* INFO: Tipografía muy cuidada */}
-                <div className="space-y-1">
-                  <div className="flex justify-between items-start">
-                    <h3 className="text-lg font-black uppercase italic tracking-tighter leading-tight group-hover:text-red-600 transition-colors">
-                      {item.nombre}
-                    </h3>
-                    <span className="text-lg font-bold text-zinc-900 tabular-nums">
-                      ${item.precio.toLocaleString('es-AR')}
-                    </span>
-                  </div>
-                  <p className="text-[10px] font-bold text-zinc-400 uppercase tracking-widest">
-                    {item.categoria}
-                  </p>
-                </div>
-              </div>
-            ))}
+          <div className="flex flex-wrap items-center gap-3 text-[11px] uppercase tracking-[0.22em] text-zinc-500">
+            <span className="inline-flex items-center gap-2">
+              <ShoppingBag className="h-4 w-4 text-red-600" />
+              Consulta inmediata
+            </span>
+            <span className="hidden h-4 w-px bg-zinc-200 md:block" />
+            <span>Coordinacion por WhatsApp</span>
+            <span className="hidden h-4 w-px bg-zinc-200 md:block" />
+            <span>Stock sujeto a disponibilidad</span>
           </div>
-        )}
-      </div>
+        </div>
+      </section>
 
-      {/* FOOTER DE TIENDA */}
-      <div className="border-t border-zinc-100 py-20 px-6 bg-zinc-50">
-        <div className="container mx-auto max-w-7xl flex flex-col items-center text-center">
-          <ShoppingBag className="w-12 h-12 text-zinc-200 mb-6" />
-          <h2 className="text-2xl font-black uppercase italic tracking-tighter mb-4">¿No encontrás lo que buscás?</h2>
-          <p className="text-zinc-500 text-sm max-w-md mb-8 font-medium">
-            Si necesitás talles especiales o pedidos para equipos completos, ponete en contacto con la secretaría del club.
-          </p>
-          <a 
-            href={`https://wa.me/${WHATSAPP_CLUB}`}
-            className="flex items-center gap-4 text-[11px] font-black uppercase tracking-[0.3em] hover:text-red-600 transition-colors"
+      <TiendaCatalogo productos={productos} whatsappNumber={WHATSAPP_CLUB} />
+
+      <section className="border-t border-zinc-100 bg-zinc-50 px-6 py-20 md:px-8">
+        <div className="mx-auto grid w-full max-w-7xl gap-10 rounded-[2.5rem] bg-white p-8 shadow-sm shadow-zinc-200/60 md:grid-cols-[1fr_auto] md:items-center md:p-12">
+          <div>
+            <p className="text-[10px] font-black uppercase tracking-[0.32em] text-red-600">
+              Necesitas otra cosa?
+            </p>
+            <h2 className="mt-4 text-3xl font-black uppercase italic tracking-tighter text-zinc-950 md:text-5xl">
+              Tambien armamos pedidos para equipos, talles especiales y consultas
+              puntuales.
+            </h2>
+            <p className="mt-4 max-w-2xl text-sm font-light leading-relaxed text-zinc-500 md:text-base">
+              Si no ves la prenda que buscabas, escribinos. La idea de esta boutique
+              es ayudarte a resolver rapido, no obligarte a adivinar.
+            </p>
+          </div>
+
+          <a
+            href={`https://wa.me/${WHATSAPP_CLUB}?text=${encodeURIComponent(
+              "Hola! Quiero hacer una consulta especial sobre la boutique de Huazihul."
+            )}`}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex h-14 items-center justify-center rounded-full bg-zinc-950 px-8 text-xs font-black uppercase tracking-[0.24em] text-white transition-colors hover:bg-red-600"
           >
-            Atención al socio <ArrowRight className="w-4 h-4" />
+            Resolver por WhatsApp
           </a>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

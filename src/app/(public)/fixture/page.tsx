@@ -2,6 +2,8 @@ import { supabasePublic } from "@/lib/supabase/public";
 import { FixtureList } from "./FixtureList";
 import { Badge } from "@/components/ui/badge";
 
+export const revalidate = 60;
+
 export default async function FixturePage() {
   const { data: partidos } = await supabasePublic
     .from('partidos')

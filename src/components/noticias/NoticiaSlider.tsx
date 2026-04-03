@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 interface Props {
@@ -29,10 +30,12 @@ export function NoticiaSlider({ images, title }: Props) {
         style={{ transform: `translateX(-${currentIndex * 100}%)` }}
       >
         {images.map((url, index) => (
-          <img
+          <Image
             key={index}
             src={url}
             alt={`${title} - ${index + 1}`}
+            width={1600}
+            height={900}
             className="w-full h-full object-cover flex-shrink-0"
           />
         ))}

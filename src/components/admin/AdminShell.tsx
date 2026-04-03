@@ -1,0 +1,232 @@
+"use client";
+
+import { useEffect, useMemo, useState } from "react";
+import Link from "next/link";
+import { usePathname, useRouter } from "next/navigation";
+import {
+  Camera,
+  ClipboardList,
+  LayoutDashboard,
+  Loader2,
+  LogOut,
+  MessageSquare,
+  Newspaper,
+  ShieldCheck,
+  ShoppingBag,
+  Trophy,
+  Users,
+} from "lucide-react";
+
+import { createClient } from "@/lib/supabase/client";
+
+type AdminShellProps = {
+  children: React.ReactNode;
+};
+
+type NavItem = {
+  href: string;
+  icon: React.ReactNode;
+  label: string;
+  badge?: number;
+};
+
+export function AdminShell({ children }: AdminShellProps) {
+  const supabase = useMemo(() => createClient(), []);
+  const router = useRouter();
+  const pathname = usePathname();
+
+  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
+  const [inscripcionesPendientes, setInscripcionesPendientes] = useState(0);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+
+  useEffect(() => {
+    let active = true;
+
+    const syncBadges = async () => {
+      const [{ count: noLeidos }, { count: pendientes }] = await Promise.all([
+        supabase
+          .from("mensajes_contacto")
+          .select("*", { count: "exact", head: true })
+          .eq("leido", false),
+        supabase
+          .from("inscripciones_prueba")
+          .select("*", { count: "exact", head: true })
+          .eq("estado", "pendiente"),
+      ]);
+
+      if (!active) {
+        return;
+      }
+
+      setMensajesNoLeidos(noLeidos ?? 0);
+      setInscripcionesPendientes(pendientes ?? 0);
+    };
+
+    void syncBadges();
+
+    return () => {
+      active = false;
+    };
+  }, [pathname, supabase]);
+
+  const handleLogout = async () => {
+    setIsSigningOut(true);
+    await supabase.auth.signOut();
+    router.replace("/");
+    router.refresh();
+  };
+
+  const items: NavItem[] = [
+    {
+      href: "/admin",
+      icon: <LayoutDashboard className="h-4 w-4" />,
+      label: "Tablero",
+    },
+    {
+      href: "/admin/tienda",
+      icon: <ShoppingBag className="h-4 w-4" />,
+      label: "Tienda Oficial",
+    },
+    {
+      href: "/admin/noticias",
+      icon: <Newspaper className="h-4 w-4" />,
+      label: "Noticias",
+    },
+    {
+      href: "/admin/socios",
+      icon: <Users className="h-4 w-4" />,
+      label: "Socios",
+    },
+    {
+      href: "/admin/partidos",
+      icon: <Trophy className="h-4 w-4" />,
+      label: "Partidos",
+    },
+    {
+      href: "/admin/galeria",
+      icon: <Camera className="h-4 w-4" />,
+      label: "Galeria",
+    },
+    {
+      href: "/admin/mensajes",
+      icon: <MessageSquare className="h-4 w-4" />,
+      label: "Mensajes",
+      badge: mensajesNoLeidos,
+    },
+    {
+      href: "/admin/inscripciones",
+      icon: <ClipboardList className="h-4 w-4" />,
+      label: "Clases de Prueba",
+      badge: inscripcionesPendientes,
+    },
+  ];
+
+  const navItem = ({ href, icon, label, badge }: NavItem) => {
+    const active = href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
+
+    return (
+      <Link
+        key={href}
+        href={href}
+        className={`flex items-center justify-between gap-3 rounded-none px-4 py-3.5 text-[11px] font-black uppercase tracking-widest transition-all ${
+          active
+            ? "bg-zinc-950 text-white shadow-lg shadow-black/10"
+            : "border-b border-transparent text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"
+        }`}
+      >
+        <span className="flex items-center gap-3">
+          {icon}
+          {label}
+        </span>
+        {badge && badge > 0 ? (
+          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-none bg-red-600 px-1.5 text-[9px] font-black text-white">
+            {badge}
+          </span>
+        ) : null}
+      </Link>
+    );
+  };
+
+  return (
+    <div className="flex min-h-screen bg-zinc-50 font-sans text-zinc-900 selection:bg-red-600 selection:text-white">
+      <aside className="z-10 hidden w-72 flex-col border-r border-zinc-200 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:flex">
+        <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-8">
+          <div className="flex h-8 w-8 items-center justify-center rounded-none bg-red-600 text-white">
+            <ShieldCheck className="h-5 w-5" />
+          </div>
+          <span className="text-xl font-black uppercase tracking-tighter text-zinc-950 italic">
+            Huazihul<span className="text-red-600">Admin.</span>
+          </span>
+        </div>
+
+        <nav className="flex flex-1 flex-col gap-0.5 p-0">
+          <div className="mb-4 mt-8 px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
+            Navegacion
+          </div>
+          {items.slice(0, 6).map(navItem)}
+
+          <div className="mb-4 mt-8 px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
+            Interacciones
+          </div>
+          {items.slice(6).map(navItem)}
+        </nav>
+
+        <div className="border-t border-zinc-100 p-6">
+          <button
+            onClick={handleLogout}
+            disabled={isSigningOut}
+            className="flex w-full items-center justify-center gap-3 rounded-none border border-zinc-200 px-3 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 transition-all hover:border-zinc-950 hover:bg-zinc-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
+          >
+            {isSigningOut ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <LogOut className="h-4 w-4" />
+            )}
+            Cerrar Sesion
+          </button>
+        </div>
+      </aside>
+
+      <main className="flex flex-1 flex-col overflow-y-auto">
+        <div className="border-b border-zinc-200 bg-white shadow-sm md:hidden">
+          <div className="flex items-center justify-between p-6">
+            <span className="font-black uppercase tracking-tighter text-zinc-950 italic">
+              Huazihul<span className="text-red-600">Admin.</span>
+            </span>
+            <button
+              onClick={handleLogout}
+              disabled={isSigningOut}
+              className="text-[10px] font-black uppercase tracking-widest text-red-600 disabled:opacity-60"
+            >
+              {isSigningOut ? "Saliendo..." : "Salir"}
+            </button>
+          </div>
+
+          <nav className="flex gap-2 overflow-x-auto border-t border-zinc-100 px-4 py-3">
+            {items.map(({ href, label, badge }) => {
+              const active =
+                href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
+
+              return (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`whitespace-nowrap rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-widest transition-colors ${
+                    active
+                      ? "border-red-600 bg-red-600 text-white"
+                      : "border-zinc-200 bg-white text-zinc-500"
+                  }`}
+                >
+                  {label}
+                  {badge && badge > 0 ? ` (${badge})` : ""}
+                </Link>
+              );
+            })}
+          </nav>
+        </div>
+
+        <div className="max-w-[1600px] flex-1 p-6 md:p-12 lg:p-16">{children}</div>
+      </main>
+    </div>
+  );
+}

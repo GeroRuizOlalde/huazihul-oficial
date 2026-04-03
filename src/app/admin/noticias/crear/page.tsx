@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
@@ -17,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/utils";
 
 type PreviewItem = {
   file: File;
@@ -137,13 +140,13 @@ export default function CrearNoticiaPage() {
 
       router.push("/admin/noticias");
       router.refresh();
-    } catch (err: any) {
+    } catch (error: unknown) {
       // Si algo falla después de subir archivos, intentamos limpiarlos
       if (uploadedPaths.length > 0) {
         await supabase.storage.from("noticias").remove(uploadedPaths);
       }
 
-      setErrorMsg(err?.message || "Error al crear la noticia.");
+      setErrorMsg(getErrorMessage(error, "Error al crear la noticia."));
     } finally {
       setIsLoading(false);
     }

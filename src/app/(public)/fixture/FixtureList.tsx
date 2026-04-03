@@ -2,10 +2,23 @@
 
 import { useState } from "react";
 import { Badge } from "@/components/ui/badge";
-import { Calendar, MapPin, Clock } from "lucide-react";
+import { MapPin } from "lucide-react";
 
-export function FixtureList({ partidos }: { partidos: any[] }) {
-  const [filtro, setFiltro] = useState<"Todos" | "Rugby" | "Hockey">("Todos");
+type Filtro = "Todos" | "Rugby" | "Hockey";
+
+type Partido = {
+  id: number;
+  deporte: Exclude<Filtro, "Todos">;
+  fecha_programada: string;
+  equipo_local: string;
+  equipo_visitante: string;
+  resultado_local: number | null;
+  resultado_visitante: number | null;
+  cancha: string;
+};
+
+export function FixtureList({ partidos }: { partidos: Partido[] }) {
+  const [filtro, setFiltro] = useState<Filtro>("Todos");
 
   const partidosFiltrados = filtro === "Todos" 
     ? partidos 
@@ -21,7 +34,7 @@ export function FixtureList({ partidos }: { partidos: any[] }) {
         {["Todos", "Rugby", "Hockey"].map((opcion) => (
           <button
             key={opcion}
-            onClick={() => setFiltro(opcion as any)}
+            onClick={() => setFiltro(opcion as Filtro)}
             className={`px-8 py-3 rounded-full text-[10px] font-black uppercase tracking-[0.2em] transition-all border-2 ${
               filtro === opcion 
               ? 'bg-red-600 border-red-600 text-white shadow-lg shadow-red-600/20' 
@@ -68,7 +81,13 @@ export function FixtureList({ partidos }: { partidos: any[] }) {
   );
 }
 
-function PartidoCard({ partido, esFuturo }: { partido: any, esFuturo: boolean }) {
+function PartidoCard({
+  partido,
+  esFuturo,
+}: {
+  partido: Partido;
+  esFuturo: boolean;
+}) {
   const fecha = new Date(partido.fecha_programada);
   const dia = fecha.toLocaleDateString('es-AR', { weekday: 'long', day: '2-digit', month: '2-digit' });
   const hora = fecha.toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false });

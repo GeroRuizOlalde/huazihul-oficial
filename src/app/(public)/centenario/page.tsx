@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -104,10 +105,12 @@ export default function CentenarioPage() {
             <div className="group relative order-2 lg:order-1">
               <div className="absolute -inset-4 z-0 -skew-y-3 bg-red-600/10 transition-all duration-500 group-hover:bg-red-600/20" />
               <div className="relative z-10 overflow-hidden rounded-[2rem] border-l-8 border-red-600 shadow-2xl">
-                <img
+                <Image
                   src={IMAGENES.obras}
                   alt="Proyecto de infraestructura del centenario"
-                  className="aspect-[4/3] w-full object-cover grayscale transition-all duration-1000 group-hover:scale-105 group-hover:grayscale-0"
+                  width={1200}
+                  height={900}
+                  className="aspect-[4/3] h-auto w-full object-cover grayscale transition-all duration-1000 group-hover:scale-105 group-hover:grayscale-0"
                 />
               </div>
             </div>
@@ -234,10 +237,12 @@ export default function CentenarioPage() {
           <div className="grid gap-12 md:grid-cols-2 lg:gap-20">
             <div className="group cursor-pointer space-y-8">
               <div className="relative aspect-[4/3] overflow-hidden rounded-[2.5rem] border border-zinc-800 bg-zinc-900 shadow-2xl transition-all duration-500 group-hover:border-amber-500/50">
-                <img
+                <Image
                   src={IMAGENES.camiseta}
                   alt="Camiseta Centenario"
-                  className="h-full w-full object-cover opacity-30 transition-all duration-1000 group-hover:scale-110 group-hover:opacity-60"
+                  fill
+                  sizes="(max-width: 768px) 100vw, 50vw"
+                  className="object-cover opacity-30 transition-all duration-1000 group-hover:scale-110 group-hover:opacity-60"
                 />
                 <div className="absolute left-8 top-8 bg-amber-500 px-4 py-2 text-[10px] font-black uppercase tracking-[0.3em] text-black shadow-2xl">
                   Pre-Venta

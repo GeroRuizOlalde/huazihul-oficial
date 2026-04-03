@@ -81,15 +81,12 @@ export function InscripcionPruebaModal({ deporte }: Props) {
     }, 300);
   };
 
-  const colorDeporte = deporte === "rugby" ? "red" : "amber";
   const bgBtn =
     deporte === "rugby"
       ? "bg-white text-black hover:bg-red-600 hover:text-white"
       : "bg-white text-black hover:bg-amber-500 hover:text-white";
   const accentBg = deporte === "rugby" ? "bg-red-600" : "bg-amber-500";
   const accentText = deporte === "rugby" ? "text-red-600" : "text-amber-500";
-  const accentBorder =
-    deporte === "rugby" ? "border-red-600 focus:ring-red-600" : "border-amber-500 focus:ring-amber-500";
 
   return (
     <>

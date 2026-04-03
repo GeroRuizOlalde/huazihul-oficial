@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -59,7 +60,7 @@ export default function SponsorsPage() {
     <div className="min-h-screen bg-white font-sans selection:bg-red-600 selection:text-white">
       {/* HERO */}
       <section className="relative overflow-hidden bg-zinc-950 py-24 md:py-40">
-        <div className="absolute inset-0 opacity-10 bg-[url('/images/pattern-dots.png')]" />
+        <div className="absolute inset-0 opacity-20 [background-image:radial-gradient(circle_at_1px_1px,rgba(255,255,255,0.3)_1px,transparent_0)] [background-size:24px_24px]" />
 
         <div className="relative z-10 mx-auto w-full max-w-[1440px] px-6 md:px-8">
           <div className="max-w-4xl">
@@ -101,10 +102,12 @@ export default function SponsorsPage() {
                 key={s.nombre}
                 className="group relative flex aspect-[16/8] items-center justify-center overflow-hidden rounded-[2.5rem] border border-zinc-100 bg-zinc-50 p-12 transition-all duration-700 hover:bg-white hover:shadow-2xl"
               >
-                <img
+                <Image
                   src={s.logo}
                   alt={s.nombre}
-                  className="max-h-24 object-contain grayscale transition-all duration-700 group-hover:scale-110 group-hover:grayscale-0 md:max-h-32"
+                  width={400}
+                  height={200}
+                  className="h-auto max-h-24 w-auto object-contain grayscale transition-all duration-700 group-hover:scale-110 group-hover:grayscale-0 md:max-h-32"
                 />
 
                 <div className="absolute bottom-6 right-8 opacity-0 transition-opacity group-hover:opacity-100">
@@ -133,10 +136,12 @@ export default function SponsorsPage() {
                 key={s.nombre}
                 className="group flex aspect-video items-center justify-center rounded-3xl border border-zinc-100 bg-white p-8 transition-all duration-500 hover:shadow-xl"
               >
-                <img
+                <Image
                   src={s.logo}
                   alt={s.nombre}
-                  className="max-h-12 object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 md:max-h-16"
+                  width={300}
+                  height={150}
+                  className="h-auto max-h-12 w-auto object-contain opacity-40 grayscale transition-all duration-500 group-hover:opacity-100 group-hover:grayscale-0 md:max-h-16"
                 />
               </div>
             ))}
@@ -161,10 +166,12 @@ export default function SponsorsPage() {
                 key={s.nombre}
                 className="group flex items-center justify-center rounded-2xl border border-zinc-100 p-8 transition-all duration-300 hover:bg-zinc-950"
               >
-                <img
+                <Image
                   src={s.logo}
                   alt={s.nombre}
-                  className="max-h-8 object-contain opacity-30 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-hover:invert"
+                  width={200}
+                  height={100}
+                  className="h-auto max-h-8 w-auto object-contain opacity-30 grayscale transition-all duration-300 group-hover:opacity-100 group-hover:grayscale-0 group-hover:invert"
                 />
               </div>
             ))}

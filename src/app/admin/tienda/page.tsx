@@ -1,11 +1,12 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState, useEffect } from "react";
 import { Plus, Trash2, Image as ImageIcon, Loader2, ShoppingBag } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { supabasePublic } from "@/lib/supabase/public"; // Para leer la lista
 import { subirProducto, eliminarProductoAction } from "./actions"; // Importamos las acciones del servidor
-import { cn } from "@/lib/utils";
 
 // Definimos el tipo de dato para TypeScript
 type Producto = {

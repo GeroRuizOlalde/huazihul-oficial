@@ -1,5 +1,7 @@
 "use client";
 
+/* eslint-disable @next/next/no-img-element */
+
 import { useState } from "react";
 import { Camera, Upload, X, Loader2, CheckCircle2, User } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";

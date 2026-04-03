@@ -1,5 +1,8 @@
 "use client";
 
+/* eslint-disable react/no-unescaped-entities */
+/* eslint-disable @next/next/no-img-element */
+
 import { useEffect, useMemo, useState } from "react";
 import {
   Check,
@@ -7,7 +10,6 @@ import {
   Loader2,
   Image as ImageIcon,
   Clock,
-  RotateCcw,
   Trash2,
   Eye,
   EyeOff,

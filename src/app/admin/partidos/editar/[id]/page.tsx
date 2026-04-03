@@ -16,6 +16,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { getErrorMessage } from "@/lib/utils";
 
 type Deporte = "Rugby" | "Hockey";
 
@@ -190,8 +191,8 @@ export default function EditarPartidoPage() {
 
       router.push("/admin/partidos");
       router.refresh();
-    } catch (err: any) {
-      setErrorMsg(err?.message || "Error al actualizar el partido.");
+    } catch (error: unknown) {
+      setErrorMsg(getErrorMessage(error, "Error al actualizar el partido."));
     } finally {
       setIsSaving(false);
     }

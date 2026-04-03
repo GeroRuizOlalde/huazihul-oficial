@@ -1,3 +1,4 @@
+import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Newspaper } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -66,9 +67,11 @@ export default async function NoticiasPage() {
                   className="group flex h-full flex-col border border-transparent bg-white p-4 shadow-sm transition-colors hover:border-red-600"
                 >
                   <div className="relative mb-6 aspect-video w-full overflow-hidden bg-zinc-200">
-                    <img
+                    <Image
                       src={news.imagen_url || "/images/fondo.jpg"}
                       alt={news.titulo || "Noticia de Huazihul"}
+                      fill
+                      sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
                       className="absolute inset-0 h-full w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
                   </div>
