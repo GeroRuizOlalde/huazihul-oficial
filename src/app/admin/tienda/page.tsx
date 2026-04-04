@@ -31,12 +31,15 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
+  TALLES_PREDEFINIDOS,
   getProductoPrecio,
   getProductoPrecioPromocional,
   getProductoStock,
   getProductoStockTexto,
   getProductoTalles,
+  getProductoVariantes,
   isProductoDisponible,
+  sortTalles,
   type Producto,
 } from "@/lib/tienda";
 import { supabasePublic } from "@/lib/supabase/public";
@@ -52,8 +55,12 @@ import {
 type ProductoDraft = {
   precio: string;
   precioPromocional: string;
-  stock: string;
   guardando: boolean;
+};
+
+type ProductoVarianteForm = {
+  talle: string;
+  stock: string;
 };
 
 type ProductoFormState = {
@@ -62,9 +69,8 @@ type ProductoFormState = {
   descripcion: string;
   precio: string;
   precioPromocional: string;
-  stock: string;
   categoria: string;
-  talles: string[];
+  variantes: ProductoVarianteForm[];
   imagen: File | null;
   imagenActualUrl: string;
   fileInputKey: number;
@@ -84,24 +90,6 @@ type ProductoModalProps = {
 };
 
 const CATEGORIAS = ["Rugby", "Hockey", "Merchandising", "Accesorios"];
-const TALLES_PREDEFINIDOS = [
-  "2",
-  "4",
-  "6",
-  "8",
-  "10",
-  "12",
-  "14",
-  "16",
-  "XS",
-  "S",
-  "M",
-  "L",
-  "XL",
-  "XXL",
-  "3XL",
-  "UNICO",
-];
 
 export default function AdminTienda() {
   const [productos, setProductos] = useState<Producto[]>([]);
@@ -151,7 +139,8 @@ export default function AdminTienda() {
       (producto) =>
         !("stock" in producto) ||
         !("precio_promocional" in producto) ||
-        !("talles" in producto)
+        !("talles" in producto) ||
+        !("variantes" in producto)
     );
   }, [productos]);
 
@@ -196,6 +185,13 @@ export default function AdminTienda() {
       return;
     }
 
+    const inventoryError = getVariantesError(nuevoProductoForm.variantes);
+
+    if (inventoryError) {
+      window.alert(inventoryError);
+      return;
+    }
+
     setSubiendoNuevo(true);
 
     try {
@@ -231,6 +227,13 @@ export default function AdminTienda() {
 
     if (!productoEnEdicion.nombre || !productoEnEdicion.precio) {
       window.alert("Faltan datos obligatorios.");
+      return;
+    }
+
+    const inventoryError = getVariantesError(productoEnEdicion.variantes);
+
+    if (inventoryError) {
+      window.alert(inventoryError);
       return;
     }
 
@@ -286,7 +289,6 @@ export default function AdminTienda() {
         ...(prev[id] ?? {
           precio: "",
           precioPromocional: "",
-          stock: "0",
           guardando: false,
         }),
         [field]: value,
@@ -302,18 +304,12 @@ export default function AdminTienda() {
     }
 
     const precioValue = Number(draft.precio);
-    const stockValue = Number(draft.stock);
     const precioPromocionalValue = draft.precioPromocional.trim()
       ? Number(draft.precioPromocional)
       : null;
 
     if (!Number.isFinite(precioValue) || precioValue <= 0) {
       window.alert("El precio debe ser mayor a 0.");
-      return;
-    }
-
-    if (!Number.isFinite(stockValue) || stockValue < 0) {
-      window.alert("El stock debe ser 0 o mayor.");
       return;
     }
 
@@ -340,7 +336,6 @@ export default function AdminTienda() {
         id: producto.id,
         precio: precioValue,
         precioPromocional: precioPromocionalValue,
-        stock: Math.floor(stockValue),
       });
 
       if (!result.ok) {
@@ -386,9 +381,9 @@ export default function AdminTienda() {
                   Productos
                 </h1>
                 <p className="mt-2 max-w-2xl text-sm text-zinc-500">
-                  Gestiona todo el catalogo desde una sola vista. Edita stock,
-                  precio, promo y abre el detalle para tocar talles y datos
-                  completos.
+                  Gestiona precios desde la lista y deja el inventario real por
+                  talle dentro de cada producto. El stock total se calcula
+                  automaticamente desde las variantes.
                 </p>
               </div>
 
@@ -426,8 +421,9 @@ export default function AdminTienda() {
             {faltaMigracionTienda ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                 La tabla `productos` todavia no tiene las columnas `stock`,
-                `precio_promocional` y/o `talles`. Mientras no ejecutes las
-                migraciones SQL de tienda, crear o editar productos va a fallar.
+                `precio_promocional`, `talles` y/o `variantes`. Mientras no
+                ejecutes las migraciones SQL de tienda, crear o editar productos
+                va a fallar.
               </div>
             ) : null}
           </div>
@@ -451,12 +447,12 @@ export default function AdminTienda() {
               </div>
             ) : (
               <div className="overflow-hidden rounded-[1.5rem] border border-zinc-200">
-                <div className="hidden grid-cols-[minmax(0,2.8fr)_120px_140px_140px_250px] gap-4 bg-zinc-50 px-5 py-4 lg:grid">
+                <div className="hidden grid-cols-[minmax(0,2.6fr)_240px_140px_140px_250px] gap-4 bg-zinc-50 px-5 py-4 lg:grid">
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
                     Producto
                   </p>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
-                    Stock
+                    Inventario
                   </p>
                   <p className="text-xs font-black uppercase tracking-[0.18em] text-zinc-500">
                     Precio
@@ -471,11 +467,13 @@ export default function AdminTienda() {
 
                 {productosFiltrados.map((producto, index) => {
                   const talles = getProductoTalles(producto);
+                  const variantes = getProductoVariantes(producto);
+                  const stockTotal = getProductoStock(producto) ?? 0;
 
                   return (
                     <div
                       key={producto.id}
-                      className={`grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,2.8fr)_120px_140px_140px_250px] lg:items-center ${
+                      className={`grid gap-4 px-5 py-5 lg:grid-cols-[minmax(0,2.6fr)_240px_140px_140px_250px] lg:items-center ${
                         index !== 0 ? "border-t border-zinc-200" : ""
                       }`}
                     >
@@ -527,7 +525,7 @@ export default function AdminTienda() {
                               </>
                             ) : (
                               <span className="text-xs text-zinc-400">
-                                Sin talles cargados
+                                Usa editar para cargar variantes
                               </span>
                             )}
                           </div>
@@ -536,18 +534,36 @@ export default function AdminTienda() {
 
                       <div>
                         <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 lg:hidden">
-                          Stock
+                          Inventario
                         </p>
-                        <Input
-                          type="number"
-                          min="0"
-                          step="1"
-                          value={ediciones[producto.id]?.stock ?? ""}
-                          onChange={(e) =>
-                            handleDraftChange(producto.id, "stock", e.target.value)
-                          }
-                          className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
-                        />
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
+                          <p className="text-sm font-black text-zinc-900">
+                            {stockTotal} unidades
+                          </p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            {variantes.length > 0 ? (
+                              <>
+                                {variantes.slice(0, 4).map((variante) => (
+                                  <span
+                                    key={variante.talle}
+                                    className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
+                                  >
+                                    {variante.talle}: {variante.stock}
+                                  </span>
+                                ))}
+                                {variantes.length > 4 ? (
+                                  <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                    +{variantes.length - 4} talles
+                                  </span>
+                                ) : null}
+                              </>
+                            ) : (
+                              <p className="text-xs text-zinc-500">
+                                El stock por talle se gestiona desde Editar.
+                              </p>
+                            )}
+                          </div>
+                        </div>
                       </div>
 
                       <div>
@@ -642,7 +658,7 @@ export default function AdminTienda() {
         updateForm={(updater) => setNuevoProductoForm((prev) => updater(prev))}
         onSubmit={handleCrearProducto}
         title="Nuevo producto"
-        description="Carga una nueva prenda con stock, promocion y talles desde el inicio."
+        description="Selecciona talles disponibles y define el stock de cada uno desde el alta."
         submitLabel="Crear producto"
         submitPending={subiendoNuevo}
         requireImage
@@ -657,7 +673,7 @@ export default function AdminTienda() {
         }
         onSubmit={handleEditarProducto}
         title="Editar producto"
-        description="Modifica nombre, categoria, stock, precios, talles e imagen del producto."
+        description="Modifica nombre, categoria, precios, talles e inventario por variante."
         submitLabel="Guardar cambios"
         submitPending={guardandoEdicion}
         requireImage={false}
@@ -681,6 +697,8 @@ function ProductoModal({
   if (!form) {
     return null;
   }
+
+  const stockTotal = getFormTotalStock(form.variantes);
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -781,35 +799,40 @@ function ProductoModal({
                 />
               </div>
 
-              <div>
-                <Label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                  Stock *
-                </Label>
-                <Input
-                  type="number"
-                  min="0"
-                  step="1"
-                  value={form.stock}
-                  onChange={(e) =>
-                    updateForm((prev) => ({
-                      ...prev,
-                      stock: e.target.value,
-                    }))
-                  }
-                  placeholder="12"
-                  className="h-12 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
-                  required
-                />
+              <div className="rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-3">
+                <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                  Stock total derivado
+                </p>
+                <p className="mt-1 text-2xl font-black text-zinc-950">
+                  {stockTotal}
+                </p>
+                <p className="mt-1 text-xs text-zinc-500">
+                  Se calcula automaticamente desde el stock de cada talle.
+                </p>
               </div>
             </div>
 
             <div>
-              <Label className="mb-3 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
-                Talles disponibles
-              </Label>
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <Label className="block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                    Talles y stock disponible *
+                  </Label>
+                  <p className="mt-1 text-xs text-zinc-500">
+                    Selecciona los talles que ofreces y luego carga cuantas
+                    unidades hay en cada uno. Para productos sin medida usa
+                    `UNICO`.
+                  </p>
+                </div>
+                <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700">
+                  {form.variantes.length} talle{form.variantes.length === 1 ? "" : "s"}
+                </span>
+              </div>
               <div className="grid grid-cols-4 gap-2 sm:grid-cols-5 md:grid-cols-8">
                 {TALLES_PREDEFINIDOS.map((talle) => {
-                  const activo = form.talles.includes(talle);
+                  const activo = form.variantes.some(
+                    (variante) => variante.talle === talle
+                  );
 
                   return (
                     <button
@@ -818,7 +841,7 @@ function ProductoModal({
                       onClick={() =>
                         updateForm((prev) => ({
                           ...prev,
-                          talles: toggleTalle(prev.talles, talle),
+                          variantes: toggleVariante(prev.variantes, talle),
                         }))
                       }
                       className={`h-10 rounded-xl border text-xs font-black uppercase tracking-[0.14em] transition-colors ${
@@ -833,11 +856,54 @@ function ProductoModal({
                 })}
               </div>
 
-              <p className="mt-3 text-xs text-zinc-500">
-                {form.talles.length > 0
-                  ? `Seleccionados: ${form.talles.join(", ")}`
-                  : "No hay talles seleccionados. Si es un producto unico, marca UNICO."}
-              </p>
+              {form.variantes.length > 0 ? (
+                <div className="mt-4 grid gap-3 md:grid-cols-2">
+                  {form.variantes.map((variante) => (
+                    <div
+                      key={variante.talle}
+                      className="rounded-2xl border border-zinc-200 bg-zinc-50 p-4"
+                    >
+                      <div className="flex items-center justify-between gap-3">
+                        <div>
+                          <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                            Talle
+                          </p>
+                          <p className="mt-1 text-lg font-black text-zinc-950">
+                            {variante.talle}
+                          </p>
+                        </div>
+
+                        <div className="w-28">
+                          <Label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.16em] text-zinc-500">
+                            Stock
+                          </Label>
+                          <Input
+                            type="number"
+                            min="0"
+                            step="1"
+                            value={variante.stock}
+                            onChange={(e) =>
+                              updateForm((prev) => ({
+                                ...prev,
+                                variantes: updateVarianteStock(
+                                  prev.variantes,
+                                  variante.talle,
+                                  e.target.value
+                                ),
+                              }))
+                            }
+                            className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="mt-4 rounded-2xl border border-dashed border-zinc-200 bg-zinc-50 px-4 py-5 text-sm text-zinc-500">
+                  Todavia no hay talles seleccionados.
+                </div>
+              )}
             </div>
 
             <div>
@@ -954,9 +1020,8 @@ function createEmptyForm(): ProductoFormState {
     descripcion: "",
     precio: "",
     precioPromocional: "",
-    stock: "1",
     categoria: "Rugby",
-    talles: [],
+    variantes: [],
     imagen: null,
     imagenActualUrl: "",
     fileInputKey: Date.now(),
@@ -970,11 +1035,11 @@ function buildEditForm(producto: Producto): ProductoFormState {
     descripcion: producto.descripcion?.trim() ?? "",
     precio: String(getProductoPrecio(producto)),
     precioPromocional: getProductoPrecioPromocional(producto)?.toString() ?? "",
-    stock: String(
-      getProductoStock(producto) ?? (isProductoDisponible(producto) ? 1 : 0)
-    ),
     categoria: producto.categoria,
-    talles: getProductoTalles(producto),
+    variantes: getProductoVariantes(producto).map((variante) => ({
+      talle: variante.talle,
+      stock: String(variante.stock),
+    })),
     imagen: null,
     imagenActualUrl: producto.imagen_url,
     fileInputKey: Date.now(),
@@ -996,9 +1061,16 @@ function buildProductoFormData(
   formData.append("descripcion", form.descripcion);
   formData.append("precio", form.precio);
   formData.append("precio_promocional", form.precioPromocional);
-  formData.append("stock", form.stock);
+  formData.append(
+    "variantes",
+    JSON.stringify(
+      normalizeVariantesForSubmit(form.variantes).map((variante) => ({
+        talle: variante.talle,
+        stock: Number(variante.stock || "0"),
+      }))
+    )
+  );
   formData.append("categoria", form.categoria);
-  formData.append("talles", JSON.stringify(form.talles));
 
   if (form.imagen) {
     formData.append("imagen", form.imagen);
@@ -1014,19 +1086,79 @@ function createDrafts(productos: Producto[]) {
       {
         precio: String(getProductoPrecio(producto)),
         precioPromocional: getProductoPrecioPromocional(producto)?.toString() ?? "",
-        stock: String(
-          getProductoStock(producto) ?? (isProductoDisponible(producto) ? 1 : 0)
-        ),
         guardando: false,
       },
     ])
   ) as Record<string, ProductoDraft>;
 }
 
-function toggleTalle(talles: string[], talle: string) {
-  if (talles.includes(talle)) {
-    return talles.filter((item) => item !== talle);
+function toggleVariante(variantes: ProductoVarianteForm[], talle: string) {
+  const existente = variantes.some((variante) => variante.talle === talle);
+
+  if (existente) {
+    return variantes.filter((variante) => variante.talle !== talle);
   }
 
-  return [...talles, talle];
+  return normalizeVariantesForSubmit([
+    ...variantes,
+    {
+      talle,
+      stock: "1",
+    },
+  ]);
+}
+
+function updateVarianteStock(
+  variantes: ProductoVarianteForm[],
+  talle: string,
+  stock: string
+) {
+  return variantes.map((variante) =>
+    variante.talle === talle ? { ...variante, stock } : variante
+  );
+}
+
+function normalizeVariantesForSubmit(variantes: ProductoVarianteForm[]) {
+  const byTalle = new Map<string, string>();
+
+  for (const variante of variantes) {
+    const talle = variante.talle.trim().toUpperCase();
+
+    if (!talle) {
+      continue;
+    }
+
+    byTalle.set(talle, variante.stock.trim());
+  }
+
+  return sortTalles(Array.from(byTalle.keys())).map((talle) => ({
+    talle,
+    stock: byTalle.get(talle) ?? "0",
+  }));
+}
+
+function getFormTotalStock(variantes: ProductoVarianteForm[]) {
+  return normalizeVariantesForSubmit(variantes).reduce((total, variante) => {
+    const stock = Number(variante.stock);
+
+    return total + (Number.isFinite(stock) && stock > 0 ? Math.floor(stock) : 0);
+  }, 0);
+}
+
+function getVariantesError(variantes: ProductoVarianteForm[]) {
+  const normalizadas = normalizeVariantesForSubmit(variantes);
+
+  if (normalizadas.length === 0) {
+    return "Selecciona al menos un talle. Si el producto no tiene medida, usa UNICO.";
+  }
+
+  for (const variante of normalizadas) {
+    const stock = Number(variante.stock);
+
+    if (!Number.isFinite(stock) || stock < 0 || !Number.isInteger(stock)) {
+      return `El stock del talle ${variante.talle} debe ser 0 o mayor.`;
+    }
+  }
+
+  return null;
 }

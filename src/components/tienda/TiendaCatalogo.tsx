@@ -9,7 +9,8 @@ import {
   getProductoPrecio,
   getProductoPrecioPromocional,
   getProductoStockTexto,
-  getProductoTalles,
+  getProductoTallesDisponibles,
+  sortTalles,
   type Producto,
 } from "@/lib/tienda";
 import { cn } from "@/lib/utils";
@@ -25,7 +26,8 @@ function buildWhatsAppLink(producto: Producto, whatsappNumber: string) {
 }
 
 export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
-  const [filtro, setFiltro] = useState("Todos");
+  const [filtroCategoria, setFiltroCategoria] = useState("Todos");
+  const [filtroTalle, setFiltroTalle] = useState("Todos");
 
   const categorias = useMemo(() => {
     const activas = Array.from(
@@ -35,13 +37,29 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
     return ["Todos", ...activas];
   }, [productos]);
 
-  const productosFiltrados = useMemo(() => {
-    if (filtro === "Todos") {
-      return productos;
-    }
+  const talles = useMemo(() => {
+    const disponibles = sortTalles(
+      Array.from(
+        new Set(
+          productos.flatMap((producto) => getProductoTallesDisponibles(producto))
+        )
+      )
+    );
 
-    return productos.filter((producto) => producto.categoria === filtro);
-  }, [filtro, productos]);
+    return ["Todos", ...disponibles];
+  }, [productos]);
+
+  const productosFiltrados = useMemo(() => {
+    return productos.filter((producto) => {
+      const coincideCategoria =
+        filtroCategoria === "Todos" || producto.categoria === filtroCategoria;
+      const coincideTalle =
+        filtroTalle === "Todos" ||
+        getProductoTallesDisponibles(producto).includes(filtroTalle);
+
+      return coincideCategoria && coincideTalle;
+    });
+  }, [filtroCategoria, filtroTalle, productos]);
 
   return (
     <div className="min-h-screen bg-white font-sans text-zinc-900">
@@ -66,21 +84,54 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                 <button
                   key={categoria}
                   type="button"
-                  onClick={() => setFiltro(categoria)}
+                  onClick={() => setFiltroCategoria(categoria)}
                   className={cn(
                     "relative pb-2 text-[10px] font-black uppercase tracking-[0.2em] transition-colors",
-                    filtro === categoria
+                    filtroCategoria === categoria
                       ? "text-red-600"
                       : "text-zinc-400 hover:text-zinc-900"
                   )}
                 >
                   {categoria}
-                  {filtro === categoria ? (
+                  {filtroCategoria === categoria ? (
                     <span className="absolute bottom-0 left-0 h-0.5 w-full bg-red-600" />
                   ) : null}
                 </button>
               ))}
             </nav>
+          </div>
+
+          <div className="mt-8 border-t border-zinc-100 pt-6">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+              <div>
+                <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                  Filtrar por talle
+                </p>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {talles.map((talle) => (
+                    <button
+                      key={talle}
+                      type="button"
+                      onClick={() => setFiltroTalle(talle)}
+                      className={cn(
+                        "rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-[0.16em] transition-colors",
+                        filtroTalle === talle
+                          ? "border-zinc-950 bg-zinc-950 text-white"
+                          : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-900 hover:text-zinc-950"
+                      )}
+                    >
+                      {talle}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                {productosFiltrados.length} producto
+                {productosFiltrados.length === 1 ? "" : "s"} visible
+                {productosFiltrados.length === 1 ? "" : "s"}
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -91,7 +142,7 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
             {productosFiltrados.map((producto) => {
               const precio = getProductoPrecio(producto);
               const precioPromocional = getProductoPrecioPromocional(producto);
-              const talles = getProductoTalles(producto);
+              const tallesDisponibles = getProductoTallesDisponibles(producto);
 
               return (
                 <article key={producto.id} className="group">
@@ -162,9 +213,9 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                     </div>
 
                     <div className="flex flex-wrap gap-2 pt-1">
-                      {talles.length > 0 ? (
+                      {tallesDisponibles.length > 0 ? (
                         <>
-                          {talles.slice(0, 5).map((talle) => (
+                          {tallesDisponibles.slice(0, 5).map((talle) => (
                             <span
                               key={talle}
                               className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
@@ -172,9 +223,9 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                               {talle}
                             </span>
                           ))}
-                          {talles.length > 5 ? (
+                          {tallesDisponibles.length > 5 ? (
                             <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                              +{talles.length - 5}
+                              +{tallesDisponibles.length - 5}
                             </span>
                           ) : null}
                         </>
@@ -193,11 +244,11 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
           <div className="border border-zinc-100 bg-zinc-50 px-6 py-20 text-center">
             <Tag className="mx-auto h-10 w-10 text-red-600" />
             <h2 className="mt-6 text-2xl font-black uppercase italic tracking-tighter text-zinc-950">
-              No hay productos visibles en esta categoria.
+              No hay productos visibles para este filtro.
             </h2>
             <p className="mx-auto mt-4 max-w-xl text-sm font-medium text-zinc-500">
-              Si necesitas otra prenda, un talle puntual o un pedido para equipo,
-              escribenos y lo resolvemos por WhatsApp.
+              Prueba con otra categoria o talle. Si necesitas una prenda puntual
+              o un pedido para equipo, escribenos y lo resolvemos por WhatsApp.
             </p>
             <a
               href={`https://wa.me/${whatsappNumber}?text=${encodeURIComponent(

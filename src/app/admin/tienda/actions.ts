@@ -4,12 +4,17 @@ import { revalidatePath } from "next/cache";
 
 import { requireAdminAccess } from "@/lib/auth/admin";
 import { createClient } from "@/lib/supabase/server";
+import { sortTalles } from "@/lib/tienda";
 import { getErrorMessage, getSupabaseStoragePath } from "@/lib/utils";
 
 type ActualizarProductoPayload = {
   id: string;
   precio: number;
   precioPromocional: number | null;
+};
+
+type ProductoVarianteInput = {
+  talle: string;
   stock: number;
 };
 
@@ -24,11 +29,11 @@ function ok(): TiendaActionResult {
 function fail(error: unknown): TiendaActionResult {
   const message = getErrorMessage(error);
 
-  if (/precio_promocional|stock|talles/i.test(message)) {
+  if (/precio_promocional|stock|talles|variantes/i.test(message)) {
     return {
       ok: false,
       error:
-        "Faltan las columnas stock, precio_promocional y/o talles en la tabla productos. Ejecuta las migraciones SQL antes de guardar cambios en tienda.",
+        "Faltan las columnas stock, precio_promocional, talles y/o variantes en la tabla productos. Ejecuta las migraciones SQL antes de guardar cambios en tienda.",
     };
   }
 
@@ -60,16 +65,6 @@ function parsePrecio(value: FormDataEntryValue | null) {
   return precio;
 }
 
-function parseStock(value: FormDataEntryValue | null) {
-  const stock = Number(value);
-
-  if (!Number.isFinite(stock) || stock < 0) {
-    throw new Error("El stock debe ser 0 o mayor.");
-  }
-
-  return Math.floor(stock);
-}
-
 function parsePrecioPromocional(
   value: FormDataEntryValue | null,
   precio: number
@@ -93,42 +88,61 @@ function parsePrecioPromocional(
   return precioPromocional;
 }
 
-function parseTalles(value: FormDataEntryValue | null) {
+function parseVariantes(value: FormDataEntryValue | null) {
   const rawValue = String(value ?? "").trim();
 
   if (!rawValue) {
-    return [];
+    throw new Error("Selecciona al menos un talle disponible.");
   }
 
-  let talles: string[] = [];
+  let parsed: unknown;
 
-  if (rawValue.startsWith("[") && rawValue.endsWith("]")) {
-    try {
-      const parsed = JSON.parse(rawValue);
+  try {
+    parsed = JSON.parse(rawValue);
+  } catch {
+    throw new Error("No pudimos interpretar los talles del producto.");
+  }
 
-      if (Array.isArray(parsed)) {
-        talles = parsed.filter((item): item is string => typeof item === "string");
-      }
-    } catch {
-      talles = rawValue.split(",");
+  if (!Array.isArray(parsed)) {
+    throw new Error("Los talles del producto tienen un formato invalido.");
+  }
+
+  const variantesMap = new Map<string, number>();
+
+  for (const item of parsed) {
+    if (!item || typeof item !== "object") {
+      continue;
     }
-  } else {
-    talles = rawValue.split(",");
+
+    const talle =
+      typeof item.talle === "string" ? item.talle.trim().toUpperCase() : "";
+    const stock = Number(item.stock);
+
+    if (!talle) {
+      continue;
+    }
+
+    if (!Number.isFinite(stock) || stock < 0 || !Number.isInteger(stock)) {
+      throw new Error(`El stock del talle ${talle} debe ser 0 o mayor.`);
+    }
+
+    variantesMap.set(talle, Math.floor(stock));
   }
 
-  const normalizados = Array.from(
-    new Set(
-      talles
-        .map((item) => item.trim().toUpperCase())
-        .filter(Boolean)
-    )
-  );
+  const talles = sortTalles(Array.from(variantesMap.keys()));
 
-  if (normalizados.length > 20) {
+  if (talles.length === 0) {
+    throw new Error("Selecciona al menos un talle disponible.");
+  }
+
+  if (talles.length > 30) {
     throw new Error("Demasiados talles cargados para un solo producto.");
   }
 
-  return normalizados;
+  return talles.map((talle) => ({
+    talle,
+    stock: variantesMap.get(talle) ?? 0,
+  })) satisfies ProductoVarianteInput[];
 }
 
 function revalidateTienda() {
@@ -155,8 +169,12 @@ export async function subirProducto(
       formData.get("precio_promocional"),
       precio
     );
-    const stock = parseStock(formData.get("stock"));
-    const talles = parseTalles(formData.get("talles"));
+    const variantes = parseVariantes(formData.get("variantes"));
+    const talles = variantes.map((variante) => variante.talle);
+    const stock = variantes.reduce(
+      (total, variante) => total + variante.stock,
+      0
+    );
     const imagen = formData.get("imagen");
 
     if (!nombre || !categoria) {
@@ -202,6 +220,7 @@ export async function subirProducto(
         stock,
         en_stock: stock > 0,
         talles,
+        variantes,
         categoria,
         imagen_url: publicUrl,
       },
@@ -244,8 +263,12 @@ export async function editarProductoAction(
       formData.get("precio_promocional"),
       precio
     );
-    const stock = parseStock(formData.get("stock"));
-    const talles = parseTalles(formData.get("talles"));
+    const variantes = parseVariantes(formData.get("variantes"));
+    const talles = variantes.map((variante) => variante.talle);
+    const stock = variantes.reduce(
+      (total, variante) => total + variante.stock,
+      0
+    );
     const imagen = formData.get("imagen");
 
     if (!productoId) {
@@ -296,6 +319,7 @@ export async function editarProductoAction(
       stock: number;
       en_stock: boolean;
       talles: string[];
+      variantes: ProductoVarianteInput[];
       categoria: string;
       imagen_url?: string;
     } = {
@@ -306,6 +330,7 @@ export async function editarProductoAction(
       stock,
       en_stock: stock > 0,
       talles,
+      variantes,
       categoria,
     };
 
@@ -350,7 +375,6 @@ export async function actualizarProductoAction({
   id,
   precio,
   precioPromocional,
-  stock,
 }: ActualizarProductoPayload): Promise<TiendaActionResult> {
   try {
     await requireAdminAccess();
@@ -359,7 +383,6 @@ export async function actualizarProductoAction({
 
     const productoId = String(id ?? "").trim();
     const precioFinal = Number(precio);
-    const stockFinal = Math.floor(Number(stock));
     const precioPromocionalFinal =
       precioPromocional === null ? null : Number(precioPromocional);
 
@@ -369,10 +392,6 @@ export async function actualizarProductoAction({
 
     if (!Number.isFinite(precioFinal) || precioFinal <= 0) {
       return fail("El precio debe ser mayor a 0.");
-    }
-
-    if (!Number.isFinite(stockFinal) || stockFinal < 0) {
-      return fail("El stock debe ser 0 o mayor.");
     }
 
     if (
@@ -389,8 +408,6 @@ export async function actualizarProductoAction({
       .update({
         precio: precioFinal,
         precio_promocional: precioPromocionalFinal,
-        stock: stockFinal,
-        en_stock: stockFinal > 0,
       })
       .eq("id", productoId);
 
