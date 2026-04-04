@@ -159,49 +159,52 @@ export function AdminShell({ children }: AdminShellProps) {
   const items: NavItem[] = [
     {
       href: "/admin",
-      icon: <LayoutDashboard className="h-4 w-4" />,
+      icon: <LayoutDashboard className="h-4 w-4 shrink-0" />,
       label: "Tablero",
     },
     {
       href: "/admin/tienda",
-      icon: <ShoppingBag className="h-4 w-4" />,
+      icon: <ShoppingBag className="h-4 w-4 shrink-0" />,
       label: "Tienda Oficial",
     },
     {
       href: "/admin/noticias",
-      icon: <Newspaper className="h-4 w-4" />,
+      icon: <Newspaper className="h-4 w-4 shrink-0" />,
       label: "Noticias",
     },
     {
       href: "/admin/socios",
-      icon: <Users className="h-4 w-4" />,
+      icon: <Users className="h-4 w-4 shrink-0" />,
       label: "Socios",
       badge: badgeCounts.aspirantes,
     },
     {
       href: "/admin/partidos",
-      icon: <Trophy className="h-4 w-4" />,
+      icon: <Trophy className="h-4 w-4 shrink-0" />,
       label: "Partidos",
     },
     {
       href: "/admin/galeria",
-      icon: <Camera className="h-4 w-4" />,
+      icon: <Camera className="h-4 w-4 shrink-0" />,
       label: "Galeria",
       badge: badgeCounts.galeria,
     },
     {
       href: "/admin/mensajes",
-      icon: <MessageSquare className="h-4 w-4" />,
+      icon: <MessageSquare className="h-4 w-4 shrink-0" />,
       label: "Mensajes",
       badge: badgeCounts.mensajes,
     },
     {
       href: "/admin/inscripciones",
-      icon: <ClipboardList className="h-4 w-4" />,
+      icon: <ClipboardList className="h-4 w-4 shrink-0" />,
       label: "Clases de Prueba",
       badge: badgeCounts.inscripciones,
     },
   ];
+
+  const desktopLabelClass =
+    "max-w-0 overflow-hidden whitespace-nowrap opacity-0 transition-[max-width,opacity] duration-200 group-hover/sidebar:max-w-[180px] group-hover/sidebar:opacity-100";
 
   const navItem = ({ href, icon, label, badge }: NavItem) => {
     const active = href === "/admin" ? pathname === "/admin" : pathname?.startsWith(href);
@@ -210,18 +213,19 @@ export function AdminShell({ children }: AdminShellProps) {
       <Link
         key={href}
         href={href}
-        className={`flex items-center justify-between gap-3 rounded-none px-4 py-3.5 text-[11px] font-black uppercase tracking-widest transition-all ${
+        title={label}
+        className={`relative flex items-center justify-center gap-3 rounded-none px-3 py-3.5 text-[11px] font-black uppercase tracking-widest transition-all duration-300 group-hover/sidebar:justify-between group-hover/sidebar:px-4 ${
           active
             ? "bg-zinc-950 text-white shadow-lg shadow-black/10"
             : "border-b border-transparent text-zinc-500 hover:bg-zinc-100 hover:text-zinc-950"
         }`}
       >
-        <span className="flex items-center gap-3">
+        <span className="flex min-w-0 items-center gap-3">
           {icon}
-          {label}
+          <span className={desktopLabelClass}>{label}</span>
         </span>
         {badge && badge > 0 ? (
-          <span className="flex h-5 min-w-[20px] items-center justify-center rounded-none bg-red-600 px-1.5 text-[9px] font-black text-white">
+          <span className="absolute right-2 top-1/2 flex h-5 min-w-[20px] -translate-y-1/2 items-center justify-center rounded-none bg-red-600 px-1.5 text-[9px] font-black text-white transition-all duration-200 group-hover/sidebar:static group-hover/sidebar:translate-y-0">
             {badge}
           </span>
         ) : null}
@@ -231,24 +235,26 @@ export function AdminShell({ children }: AdminShellProps) {
 
   return (
     <div className="flex min-h-screen bg-zinc-50 font-sans text-zinc-900 selection:bg-red-600 selection:text-white">
-      <aside className="z-10 hidden w-72 flex-col border-r border-zinc-200 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] md:flex">
-        <div className="flex items-center gap-3 border-b border-zinc-100 px-6 py-8">
-          <div className="flex h-8 w-8 items-center justify-center rounded-none bg-red-600 text-white">
+      <aside className="group/sidebar z-10 hidden w-20 overflow-hidden border-r border-zinc-200 bg-white shadow-[4px_0_24px_rgba(0,0,0,0.02)] transition-[width] duration-300 ease-out hover:w-72 md:flex md:flex-col">
+        <div className="flex items-center justify-center gap-3 border-b border-zinc-100 px-4 py-6 transition-all duration-300 group-hover/sidebar:justify-start group-hover/sidebar:px-6 group-hover/sidebar:py-8">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-none bg-red-600 text-white">
             <ShieldCheck className="h-5 w-5" />
           </div>
-          <span className="text-xl font-black uppercase tracking-tighter text-zinc-950 italic">
+          <span
+            className={`text-xl font-black uppercase tracking-tighter text-zinc-950 italic ${desktopLabelClass}`}
+          >
             Huazihul<span className="text-red-600">Admin.</span>
           </span>
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 p-0">
-          <div className="mb-4 mt-8 px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
+          <div className="mt-6 px-3 text-center text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300 opacity-0 transition-[opacity,padding,margin] duration-200 group-hover/sidebar:mb-4 group-hover/sidebar:mt-8 group-hover/sidebar:px-6 group-hover/sidebar:text-left group-hover/sidebar:opacity-100">
             Navegacion
           </div>
           {items.slice(0, 6).map(navItem)}
 
-          <div className="mb-4 mt-8 flex items-center justify-between px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
-            <span>Interacciones</span>
+          <div className="mt-6 flex items-center justify-center px-3 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300 opacity-0 transition-[opacity,padding,margin] duration-200 group-hover/sidebar:mb-4 group-hover/sidebar:mt-8 group-hover/sidebar:justify-between group-hover/sidebar:px-6 group-hover/sidebar:opacity-100">
+            <span className={desktopLabelClass}>Interacciones</span>
             {solicitudesPendientes > 0 ? (
               <span className="rounded-none bg-red-600 px-2 py-1 text-[9px] text-white">
                 {solicitudesPendientes}
@@ -258,18 +264,19 @@ export function AdminShell({ children }: AdminShellProps) {
           {items.slice(6).map(navItem)}
         </nav>
 
-        <div className="border-t border-zinc-100 p-6">
+        <div className="border-t border-zinc-100 p-4 transition-all duration-300 group-hover/sidebar:p-6">
           <button
             onClick={handleLogout}
             disabled={isSigningOut}
+            title="Cerrar sesion"
             className="flex w-full items-center justify-center gap-3 rounded-none border border-zinc-200 px-3 py-4 text-[10px] font-black uppercase tracking-widest text-zinc-400 transition-all hover:border-zinc-950 hover:bg-zinc-950 hover:text-white disabled:cursor-not-allowed disabled:opacity-60"
           >
             {isSigningOut ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <Loader2 className="h-4 w-4 animate-spin shrink-0" />
             ) : (
-              <LogOut className="h-4 w-4" />
+              <LogOut className="h-4 w-4 shrink-0" />
             )}
-            Cerrar Sesion
+            <span className={desktopLabelClass}>Cerrar Sesion</span>
           </button>
         </div>
       </aside>
@@ -312,7 +319,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </nav>
         </div>
 
-        <div className="max-w-[1600px] flex-1 p-6 md:p-12 lg:p-16">{children}</div>
+        <div className="max-w-[1600px] flex-1 p-4 md:p-6 lg:p-8">{children}</div>
       </main>
     </div>
   );

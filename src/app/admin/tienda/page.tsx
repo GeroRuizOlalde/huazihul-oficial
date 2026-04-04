@@ -366,7 +366,7 @@ export default function AdminTienda() {
 
   return (
     <>
-      <div className="min-h-screen max-w-7xl mx-auto bg-[#f7f8fb] p-6 md:p-8">
+      <div className="min-h-full w-full max-w-[1320px] bg-[#f7f8fb] p-0 md:p-2 lg:p-3">
         <div className="rounded-[2rem] border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-6 py-6 md:px-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
@@ -448,8 +448,8 @@ export default function AdminTienda() {
             ) : (
               <div className="overflow-hidden rounded-[1.5rem] border border-zinc-200">
                 <div className="overflow-x-auto">
-                  <div className="lg:min-w-[1050px]">
-                    <div className="hidden grid-cols-[minmax(280px,1.7fr)_220px_130px_130px_240px] gap-3 bg-zinc-50 px-5 py-4 lg:grid">
+                  <div className="lg:min-w-[960px]">
+                    <div className="hidden grid-cols-[minmax(240px,1.6fr)_200px_120px_120px_210px] gap-3 bg-zinc-50 px-5 py-4 lg:grid">
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Producto
                       </p>
@@ -475,7 +475,7 @@ export default function AdminTienda() {
                       return (
                         <div
                           key={producto.id}
-                          className={`grid gap-3 px-5 py-5 lg:grid-cols-[minmax(280px,1.7fr)_220px_130px_130px_240px] lg:items-start ${
+                          className={`grid gap-3 px-5 py-5 lg:grid-cols-[minmax(240px,1.6fr)_200px_120px_120px_210px] lg:items-start ${
                             index !== 0 ? "border-t border-zinc-200" : ""
                           }`}
                         >
