@@ -319,7 +319,7 @@ export function AdminShell({ children }: AdminShellProps) {
           </nav>
         </div>
 
-        <div className="max-w-[1600px] flex-1 p-4 md:p-6 lg:p-8">{children}</div>
+        <div className="max-w-[1600px] flex-1 p-3 md:p-4 lg:p-5">{children}</div>
       </main>
     </div>
   );

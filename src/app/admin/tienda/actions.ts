@@ -1,8 +1,10 @@
 "use server";
 
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { revalidatePath } from "next/cache";
 
 import { requireAdminAccess } from "@/lib/auth/admin";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { sortTalles } from "@/lib/tienda";
 import { getErrorMessage, getSupabaseStoragePath } from "@/lib/utils";
@@ -15,6 +17,13 @@ type ActualizarProductoPayload = {
 type ProductoVarianteInput = {
   talle: string;
   stock: number;
+};
+
+type ProductoInventarioPersistido = {
+  id: string;
+  talles: unknown;
+  variantes: unknown;
+  stock: number | string | null;
 };
 
 export type TiendaActionResult =
@@ -69,6 +78,10 @@ function omitVariantes<T extends { variantes: unknown }>(payload: T): Omit<T, "v
   return rest;
 }
 
+async function getWriteClient() {
+  return createAdminClient() ?? (await createClient());
+}
+
 function parsePrecio(value: FormDataEntryValue | null) {
   const precio = Number(value);
 
@@ -102,10 +115,75 @@ function parsePrecioPromocional(
   return precioPromocional;
 }
 
-function parseVariantes(value: FormDataEntryValue | null) {
+function buildFallbackVariantesFromTalles(
+  tallesValue: FormDataEntryValue | null,
+  stockTotalValue: FormDataEntryValue | null
+) {
+  const rawTalles = String(tallesValue ?? "").trim();
+
+  if (!rawTalles) {
+    return [];
+  }
+
+  let parsedTalles: unknown;
+
+  try {
+    parsedTalles = JSON.parse(rawTalles);
+  } catch {
+    return [];
+  }
+
+  if (!Array.isArray(parsedTalles)) {
+    return [];
+  }
+
+  const talles = sortTalles(
+    Array.from(
+      new Set(
+        parsedTalles
+          .filter((item): item is string => typeof item === "string")
+          .map((item) => item.trim().toUpperCase())
+          .filter(Boolean)
+      )
+    )
+  );
+
+  if (talles.length === 0) {
+    return [];
+  }
+
+  const totalStock = Math.max(Math.floor(Number(stockTotalValue ?? 0) || 0), 0);
+  const stockBase = Math.floor(totalStock / talles.length);
+  let remainder = totalStock % talles.length;
+
+  return talles.map((talle) => {
+    const extra = remainder > 0 ? 1 : 0;
+    remainder = Math.max(0, remainder - 1);
+
+    return {
+      talle,
+      stock: stockBase + extra,
+    };
+  }) satisfies ProductoVarianteInput[];
+}
+
+function parseVariantes(
+  value: FormDataEntryValue | null,
+  tallesValue?: FormDataEntryValue | null,
+  stockTotalValue?: FormDataEntryValue | null
+) {
   const rawValue = String(value ?? "").trim();
 
   if (!rawValue) {
+    const fallbackVariantes = buildFallbackVariantesFromTalles(
+      tallesValue ?? null,
+      stockTotalValue ?? null
+    );
+
+    if (fallbackVariantes.length > 0) {
+      return fallbackVariantes;
+    }
+
     throw new Error("Selecciona al menos un talle disponible.");
   }
 
@@ -114,6 +192,15 @@ function parseVariantes(value: FormDataEntryValue | null) {
   try {
     parsed = JSON.parse(rawValue);
   } catch {
+    const fallbackVariantes = buildFallbackVariantesFromTalles(
+      tallesValue ?? null,
+      stockTotalValue ?? null
+    );
+
+    if (fallbackVariantes.length > 0) {
+      return fallbackVariantes;
+    }
+
     throw new Error("No pudimos interpretar los talles del producto.");
   }
 
@@ -159,6 +246,167 @@ function parseVariantes(value: FormDataEntryValue | null) {
   })) satisfies ProductoVarianteInput[];
 }
 
+function parsePersistedTalles(value: unknown) {
+  if (Array.isArray(value)) {
+    return sortTalles(
+      Array.from(
+        new Set(
+          value
+            .filter((item): item is string => typeof item === "string")
+            .map((item) => item.trim().toUpperCase())
+            .filter(Boolean)
+        )
+      )
+    );
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+
+    if (Array.isArray(parsed)) {
+      return parsePersistedTalles(parsed);
+    }
+  } catch {
+    return [];
+  }
+
+  return [];
+}
+
+function parsePersistedVariantes(value: unknown) {
+  const source =
+    typeof value === "string"
+      ? (() => {
+          try {
+            return JSON.parse(value);
+          } catch {
+            return [];
+          }
+        })()
+      : value;
+
+  if (!Array.isArray(source)) {
+    return [];
+  }
+
+  return source
+    .map((item) => {
+      if (!item || typeof item !== "object") {
+        return null;
+      }
+
+      const talle =
+        typeof item.talle === "string" ? item.talle.trim().toUpperCase() : "";
+      const stock = Number(item.stock);
+
+      if (!talle || !Number.isFinite(stock)) {
+        return null;
+      }
+
+      return {
+        talle,
+        stock: Math.max(0, Math.floor(stock)),
+      };
+    })
+    .filter((item): item is ProductoVarianteInput => item !== null);
+}
+
+function hasExpectedInventory(
+  snapshot: ProductoInventarioPersistido | null,
+  expectedTalles: string[]
+) {
+  if (expectedTalles.length === 0) {
+    return true;
+  }
+
+  if (!snapshot) {
+    return false;
+  }
+
+  const persistedTalles = parsePersistedTalles(snapshot.talles);
+  const persistedVariantes = sortTalles(
+    parsePersistedVariantes(snapshot.variantes).map((variante) => variante.talle)
+  );
+
+  const normalizedExpected = sortTalles(
+    Array.from(new Set(expectedTalles.map((talle) => talle.trim().toUpperCase())))
+  );
+
+  const tallesMatch =
+    persistedTalles.length === normalizedExpected.length &&
+    normalizedExpected.every((talle) => persistedTalles.includes(talle));
+
+  const variantesMatch =
+    persistedVariantes.length === normalizedExpected.length &&
+    normalizedExpected.every((talle) => persistedVariantes.includes(talle));
+
+  return tallesMatch || variantesMatch;
+}
+
+async function verifyAndRepairInventory({
+  supabase,
+  productoId,
+  talles,
+  variantes,
+  stock,
+  snapshot,
+}: {
+  supabase: SupabaseClient;
+  productoId: string;
+  talles: string[];
+  variantes: ProductoVarianteInput[];
+  stock: number;
+  snapshot: ProductoInventarioPersistido | null;
+}): Promise<TiendaActionResult | null> {
+  if (hasExpectedInventory(snapshot, talles)) {
+    return null;
+  }
+
+  console.error("Tienda: inventario no persistido tras guardar", {
+    productoId,
+    talles,
+    variantes,
+    snapshot,
+  });
+
+  const repairPayload = {
+    talles,
+    variantes,
+    stock,
+    en_stock: stock > 0,
+  };
+
+  const { data: repairedRow, error: repairError } = await supabase
+    .from("productos")
+    .update(repairPayload)
+    .eq("id", productoId)
+    .select("id,talles,variantes,stock")
+    .maybeSingle();
+
+  if (repairError) {
+    return fail(repairError);
+  }
+
+  if (hasExpectedInventory(repairedRow as ProductoInventarioPersistido | null, talles)) {
+    return null;
+  }
+
+  console.error("Tienda: inventario sigue sin persistirse despues del reintento", {
+    productoId,
+    talles,
+    variantes,
+    repairedRow,
+  });
+
+  return fail(
+    "El producto se guardo pero Supabase no persistio los talles/variantes. Revisa si hay un trigger, policy o automatizacion en la tabla productos que este reemplazando esos campos."
+  );
+}
+
 function revalidateTienda() {
   revalidatePath("/admin/tienda");
   revalidatePath("/tienda");
@@ -169,11 +417,12 @@ export async function subirProducto(
   formData: FormData
 ): Promise<TiendaActionResult> {
   let fileName: string | null = null;
+  let productoCreadoId: string | null = null;
 
   try {
     await requireAdminAccess();
 
-    const supabase = await createClient();
+    const supabase = await getWriteClient();
 
     const nombre = String(formData.get("nombre") ?? "").trim();
     const descripcion = String(formData.get("descripcion") ?? "").trim();
@@ -183,7 +432,11 @@ export async function subirProducto(
       formData.get("precio_promocional"),
       precio
     );
-    const variantes = parseVariantes(formData.get("variantes"));
+    const variantes = parseVariantes(
+      formData.get("variantes"),
+      formData.get("talles"),
+      formData.get("stock_total")
+    );
     const talles = variantes.map((variante) => variante.talle);
     const stock = variantes.reduce(
       (total, variante) => total + variante.stock,
@@ -238,11 +491,21 @@ export async function subirProducto(
       imagen_url: publicUrl,
     };
 
-    let { error: dbError } = await supabase.from("productos").insert([payload]);
+    let insertedRow: ProductoInventarioPersistido | null = null;
+    let { data: insertData, error: dbError } = await supabase
+      .from("productos")
+      .insert([payload])
+      .select("id,talles,variantes,stock")
+      .single();
 
     if (dbError && shouldFallbackToLegacyTalles(dbError)) {
       const legacyPayload = omitVariantes(payload);
-      const fallback = await supabase.from("productos").insert([legacyPayload]);
+      const fallback = await supabase
+        .from("productos")
+        .insert([legacyPayload])
+        .select("id,talles,variantes,stock")
+        .single();
+      insertData = fallback.data;
       dbError = fallback.error;
     }
 
@@ -251,11 +514,37 @@ export async function subirProducto(
       return fail(dbError);
     }
 
+    insertedRow = (insertData as ProductoInventarioPersistido | null) ?? null;
+    productoCreadoId = insertedRow?.id ?? null;
+
+    const inventoryResult = await verifyAndRepairInventory({
+      supabase,
+      productoId: insertedRow?.id ?? "",
+      talles,
+      variantes,
+      stock,
+      snapshot: insertedRow,
+    });
+
+    if (inventoryResult) {
+      if (productoCreadoId) {
+        await supabase.from("productos").delete().eq("id", productoCreadoId);
+      }
+
+      await supabase.storage.from("tienda").remove([fileName]);
+      return inventoryResult;
+    }
+
     revalidateTienda();
     return ok();
   } catch (error) {
     if (fileName) {
-      const supabase = await createClient();
+      const supabase = await getWriteClient();
+
+      if (productoCreadoId) {
+        await supabase.from("productos").delete().eq("id", productoCreadoId);
+      }
+
       await supabase.storage.from("tienda").remove([fileName]);
     }
 
@@ -271,7 +560,7 @@ export async function editarProductoAction(
   try {
     await requireAdminAccess();
 
-    const supabase = await createClient();
+    const supabase = await getWriteClient();
 
     const productoId = String(formData.get("id") ?? "").trim();
     const nombre = String(formData.get("nombre") ?? "").trim();
@@ -283,7 +572,11 @@ export async function editarProductoAction(
       formData.get("precio_promocional"),
       precio
     );
-    const variantes = parseVariantes(formData.get("variantes"));
+    const variantes = parseVariantes(
+      formData.get("variantes"),
+      formData.get("talles"),
+      formData.get("stock_total")
+    );
     const talles = variantes.map((variante) => variante.talle);
     const stock = variantes.reduce(
       (total, variante) => total + variante.stock,
@@ -358,18 +651,37 @@ export async function editarProductoAction(
       payload.imagen_url = imagenUrl;
     }
 
-    let { error } = await supabase
+    let updatedRow: ProductoInventarioPersistido | null = null;
+    let data: ProductoInventarioPersistido | null = null;
+    let error: unknown = null;
+
+    const updateResult = await supabase
       .from("productos")
       .update(payload)
       .eq("id", productoId);
+
+    error = updateResult.error;
 
     if (error && shouldFallbackToLegacyTalles(error)) {
       const legacyPayload = omitVariantes(payload);
       const fallback = await supabase
         .from("productos")
         .update(legacyPayload)
-        .eq("id", productoId);
+        .eq("id", productoId)
+        .select("id,talles,variantes,stock")
+        .single();
+      data = (fallback.data as ProductoInventarioPersistido | null) ?? null;
       error = fallback.error;
+    }
+
+    if (!error && !data) {
+      const selected = await supabase
+        .from("productos")
+        .select("id,talles,variantes,stock")
+        .eq("id", productoId)
+        .single();
+      data = (selected.data as ProductoInventarioPersistido | null) ?? null;
+      error = selected.error;
     }
 
     if (error) {
@@ -378,6 +690,21 @@ export async function editarProductoAction(
       }
 
       return fail(error);
+    }
+
+    updatedRow = data;
+
+    const inventoryResult = await verifyAndRepairInventory({
+      supabase,
+      productoId,
+      talles,
+      variantes,
+      stock,
+      snapshot: updatedRow,
+    });
+
+    if (inventoryResult) {
+      return inventoryResult;
     }
 
     if (newFileName && imagenActualUrl) {
@@ -407,7 +734,7 @@ export async function actualizarProductoAction({
   try {
     await requireAdminAccess();
 
-    const supabase = await createClient();
+    const supabase = await getWriteClient();
 
     const productoId = String(id ?? "").trim();
     const precioFinal = Number(precio);
@@ -453,7 +780,7 @@ export async function eliminarProductoAction(
   try {
     await requireAdminAccess();
 
-    const supabase = await createClient();
+    const supabase = await getWriteClient();
     const fileName = getSupabaseStoragePath(imagenUrl, "tienda");
 
     if (fileName) {

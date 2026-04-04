@@ -350,7 +350,7 @@ export default function AdminTienda() {
 
   return (
     <>
-      <div className="min-h-full w-full max-w-[1320px] bg-[#f7f8fb] p-0 md:p-2 lg:p-3">
+      <div className="min-h-full w-full bg-[#f7f8fb]">
         <div className="rounded-[2rem] border border-zinc-200 bg-white shadow-sm">
           <div className="border-b border-zinc-200 px-6 py-6 md:px-8">
             <div className="flex flex-col gap-5 md:flex-row md:items-start md:justify-between">
@@ -413,7 +413,7 @@ export default function AdminTienda() {
             ) : null}
           </div>
 
-          <div className="px-4 py-4 md:px-6">
+          <div className="px-3 py-3 md:px-5 md:py-5">
             {cargando ? (
               <div className="flex h-64 items-center justify-center">
                 <Loader2 className="h-8 w-8 animate-spin text-blue-600" />
@@ -431,10 +431,8 @@ export default function AdminTienda() {
                 </p>
               </div>
             ) : (
-              <div className="overflow-hidden rounded-[1.5rem] border border-zinc-200">
-                <div className="overflow-x-auto">
-                  <div className="lg:min-w-[760px]">
-                    <div className="hidden grid-cols-[minmax(240px,1.7fr)_210px_150px_210px] gap-3 bg-zinc-50 px-5 py-4 lg:grid">
+              <div className="overflow-hidden rounded-[1.5rem] border border-zinc-200 bg-white">
+                <div className="hidden grid-cols-[minmax(260px,1.8fr)_minmax(220px,1.1fr)_minmax(170px,0.8fr)_minmax(230px,1fr)] gap-4 bg-zinc-50 px-5 py-4 xl:grid">
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Producto
                       </p>
@@ -447,139 +445,142 @@ export default function AdminTienda() {
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Acciones
                       </p>
-                    </div>
+                </div>
 
-                    {productosFiltrados.map((producto, index) => {
-                      const talles = getProductoTalles(producto);
-                      const variantes = getProductoVariantes(producto);
-                      const stockTotal = getProductoStock(producto) ?? 0;
+                {productosFiltrados.map((producto, index) => {
+                  const talles = getProductoTalles(producto);
+                  const variantes = getProductoVariantes(producto);
+                  const stockTotal = getProductoStock(producto) ?? 0;
 
-                      return (
-                        <div
-                          key={producto.id}
-                          className={`grid gap-3 px-5 py-5 lg:grid-cols-[minmax(240px,1.7fr)_210px_150px_210px] lg:items-start ${
-                            index !== 0 ? "border-t border-zinc-200" : ""
-                          }`}
-                        >
-                          <div className="flex min-w-0 items-center gap-4">
-                            <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-zinc-100">
-                              <img
-                                src={producto.imagen_url}
-                                alt={producto.nombre}
-                                className="h-full w-full object-cover"
-                              />
-                            </div>
-
-                            <div className="min-w-0">
-                              <h2 className="truncate text-base font-bold text-zinc-950">
-                                {producto.nombre}
-                              </h2>
-                              <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
-                                {producto.categoria}
-                              </p>
-                              <div className="mt-2 flex flex-wrap items-center gap-2">
-                                <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-700">
-                                  {getProductoStockTexto(producto)}
-                                </span>
-                                {getProductoPrecioPromocional(producto) ? (
-                                  <span className="rounded-full bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
-                                    Promo activa
-                                  </span>
-                                ) : null}
-                                <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-700">
-                                  {isProductoDisponible(producto) ? "Visible" : "Sin stock"}
-                                </span>
-                              </div>
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {talles.length > 0 ? (
-                                  <>
-                                    {talles.slice(0, 6).map((talle) => (
-                                      <span
-                                        key={talle}
-                                        className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
-                                      >
-                                        {talle}
-                                      </span>
-                                    ))}
-                                    {talles.length > 6 ? (
-                                      <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                                        +{talles.length - 6}
-                                      </span>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  <span className="text-xs text-zinc-400">
-                                    Usa editar para cargar variantes
-                                  </span>
-                                )}
-                              </div>
-                            </div>
+                  return (
+                    <div
+                      key={producto.id}
+                      className={`${index !== 0 ? "border-t border-zinc-200" : ""} px-4 py-4 md:px-5`}
+                    >
+                      <div className="grid gap-4 xl:grid-cols-[minmax(260px,1.8fr)_minmax(220px,1.1fr)_minmax(170px,0.8fr)_minmax(230px,1fr)] xl:items-start">
+                        <div className="flex min-w-0 items-center gap-4">
+                          <div className="relative h-20 w-20 shrink-0 overflow-hidden rounded-2xl bg-zinc-100">
+                            <img
+                              src={producto.imagen_url}
+                              alt={producto.nombre}
+                              className="h-full w-full object-cover"
+                            />
                           </div>
 
-                          <div>
-                            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 lg:hidden">
-                              Inventario
+                          <div className="min-w-0">
+                            <h2 className="truncate text-base font-bold text-zinc-950">
+                              {producto.nombre}
+                            </h2>
+                            <p className="mt-1 text-xs font-semibold uppercase tracking-[0.18em] text-blue-600">
+                              {producto.categoria}
                             </p>
-                            <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3">
-                              <p className="text-sm font-black text-zinc-900">
-                                {stockTotal} unidades
-                              </p>
-                              <div className="mt-2 flex flex-wrap gap-2">
-                                {variantes.length > 0 ? (
-                                  <>
-                                    {variantes.slice(0, 4).map((variante) => (
-                                      <span
-                                        key={variante.talle}
-                                        className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
-                                      >
-                                        {variante.talle}: {variante.stock}
-                                      </span>
-                                    ))}
-                                    {variantes.length > 4 ? (
-                                      <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
-                                        +{variantes.length - 4} talles
-                                      </span>
-                                    ) : null}
-                                  </>
-                                ) : (
-                                  <p className="text-xs text-zinc-500">
-                                    Cargalo desde Editar.
-                                  </p>
-                                )}
-                              </div>
-                            </div>
-                          </div>
-
-                          <div>
-                            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 lg:hidden">
-                              Precio
-                            </p>
-                            <div className="space-y-2">
-                              <Input
-                                type="number"
-                                min="1"
-                                value={ediciones[producto.id]?.precio ?? ""}
-                                onChange={(e) =>
-                                  handleDraftChange(producto.id, "precio", e.target.value)
-                                }
-                                className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
-                              />
+                            <div className="mt-2 flex flex-wrap items-center gap-2">
+                              <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-700">
+                                {getProductoStockTexto(producto)}
+                              </span>
                               {getProductoPrecioPromocional(producto) ? (
-                                <p className="text-[11px] font-semibold text-red-600">
-                                  Promo actual: $
-                                  {getProductoPrecioPromocional(producto)?.toLocaleString(
-                                    "es-AR"
-                                  )}
-                                </p>
+                                <span className="rounded-full bg-red-50 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-red-600">
+                                  Promo activa
+                                </span>
+                              ) : null}
+                              <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-700">
+                                {isProductoDisponible(producto) ? "Visible" : "Sin stock"}
+                              </span>
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {talles.length > 0 ? (
+                                <>
+                                  {talles.slice(0, 6).map((talle) => (
+                                    <span
+                                      key={talle}
+                                      className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
+                                    >
+                                      {talle}
+                                    </span>
+                                  ))}
+                                  {talles.length > 6 ? (
+                                    <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                      +{talles.length - 6}
+                                    </span>
+                                  ) : null}
+                                </>
                               ) : (
-                                <p className="text-[11px] text-zinc-400">
-                                  La promo se edita desde el modal.
+                                <span className="text-xs text-zinc-400">
+                                  Usa editar para cargar variantes
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 xl:rounded-none xl:border-none xl:bg-transparent xl:p-0">
+                          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 xl:hidden">
+                            Inventario
+                          </p>
+                          <div className="rounded-2xl border border-zinc-200 bg-white p-3 xl:border-zinc-200 xl:bg-zinc-50">
+                            <p className="text-sm font-black text-zinc-900">
+                              {stockTotal} unidades
+                            </p>
+                            <div className="mt-2 flex flex-wrap gap-2">
+                              {variantes.length > 0 ? (
+                                <>
+                                  {variantes.slice(0, 4).map((variante) => (
+                                    <span
+                                      key={variante.talle}
+                                      className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
+                                    >
+                                      {variante.talle}: {variante.stock}
+                                    </span>
+                                  ))}
+                                  {variantes.length > 4 ? (
+                                    <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                                      +{variantes.length - 4} talles
+                                    </span>
+                                  ) : null}
+                                </>
+                              ) : (
+                                <p className="text-xs text-zinc-500">
+                                  Cargalo desde Editar.
                                 </p>
                               )}
                             </div>
                           </div>
+                        </div>
 
-                          <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 xl:rounded-none xl:border-none xl:bg-transparent xl:p-0">
+                          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 xl:hidden">
+                            Precio
+                          </p>
+                          <div className="space-y-2 rounded-2xl border border-zinc-200 bg-white p-3 xl:border-none xl:bg-transparent xl:p-0">
+                            <Input
+                              type="number"
+                              min="1"
+                              value={ediciones[producto.id]?.precio ?? ""}
+                              onChange={(e) =>
+                                handleDraftChange(producto.id, "precio", e.target.value)
+                              }
+                              className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
+                            />
+                            {getProductoPrecioPromocional(producto) ? (
+                              <p className="text-[11px] font-semibold text-red-600">
+                                Promo actual: $
+                                {getProductoPrecioPromocional(producto)?.toLocaleString(
+                                  "es-AR"
+                                )}
+                              </p>
+                            ) : (
+                              <p className="text-[11px] text-zinc-400">
+                                La promo se edita desde el modal.
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        <div className="rounded-2xl border border-zinc-200 bg-zinc-50 p-3 xl:rounded-none xl:border-none xl:bg-transparent xl:p-0">
+                          <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 xl:hidden">
+                            Acciones
+                          </p>
+                          <div className="flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row xl:justify-end">
                             <Button
                               type="button"
                               variant="outline"
@@ -610,17 +611,17 @@ export default function AdminTienda() {
                               type="button"
                               variant="outline"
                               onClick={() => handleEliminar(producto.id, producto.imagen_url)}
-                              className="h-11 w-11 shrink-0 rounded-xl border-zinc-200 p-0 text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600"
+                              className="h-11 w-full rounded-xl border-zinc-200 p-0 text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:w-11"
                             >
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Eliminar producto</span>
                             </Button>
                           </div>
                         </div>
-                      );
-                    })}
-                  </div>
-                </div>
+                      </div>
+                    </div>
+                  );
+                })}
 
                 <div className="border-t border-zinc-200 bg-zinc-50 px-5 py-4 text-sm font-medium text-zinc-500">
                   Mostrando {productosFiltrados.length} de {productos.length} productos
@@ -1031,6 +1032,12 @@ function buildProductoFormData(
   requireImage: boolean
 ) {
   const formData = new FormData();
+  const variantesNormalizadas = normalizeVariantesForSubmit(form.variantes).map(
+    (variante) => ({
+      talle: variante.talle,
+      stock: Number(variante.stock || "0"),
+    })
+  );
 
   if (!requireImage && form.id) {
     formData.append("id", form.id);
@@ -1041,13 +1048,15 @@ function buildProductoFormData(
   formData.append("descripcion", form.descripcion);
   formData.append("precio", form.precio);
   formData.append("precio_promocional", form.precioPromocional);
+  formData.append("variantes", JSON.stringify(variantesNormalizadas));
   formData.append(
-    "variantes",
-    JSON.stringify(
-      normalizeVariantesForSubmit(form.variantes).map((variante) => ({
-        talle: variante.talle,
-        stock: Number(variante.stock || "0"),
-      }))
+    "talles",
+    JSON.stringify(variantesNormalizadas.map((variante) => variante.talle))
+  );
+  formData.append(
+    "stock_total",
+    String(
+      variantesNormalizadas.reduce((total, variante) => total + variante.stock, 0)
     )
   );
   formData.append("categoria", form.categoria);
