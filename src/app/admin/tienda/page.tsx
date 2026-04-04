@@ -423,7 +423,8 @@ export default function AdminTienda() {
                 La tabla `productos` todavia no tiene las columnas `stock`,
                 `precio_promocional`, `talles` y/o `variantes`. Mientras no
                 ejecutes las migraciones SQL de tienda, crear o editar productos
-                va a fallar.
+                va a fallar. Para los talles con stock por variante necesitas
+                especificamente `20260403_tienda_variantes.sql`.
               </div>
             ) : null}
           </div>
@@ -448,8 +449,8 @@ export default function AdminTienda() {
             ) : (
               <div className="overflow-hidden rounded-[1.5rem] border border-zinc-200">
                 <div className="overflow-x-auto">
-                  <div className="lg:min-w-[960px]">
-                    <div className="hidden grid-cols-[minmax(240px,1.6fr)_200px_120px_120px_210px] gap-3 bg-zinc-50 px-5 py-4 lg:grid">
+                  <div className="lg:min-w-[760px]">
+                    <div className="hidden grid-cols-[minmax(240px,1.7fr)_210px_150px_210px] gap-3 bg-zinc-50 px-5 py-4 lg:grid">
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Producto
                       </p>
@@ -458,9 +459,6 @@ export default function AdminTienda() {
                       </p>
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Precio
-                      </p>
-                      <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
-                        Promocional
                       </p>
                       <p className="text-xs font-black uppercase tracking-[0.14em] text-zinc-500">
                         Acciones
@@ -475,7 +473,7 @@ export default function AdminTienda() {
                       return (
                         <div
                           key={producto.id}
-                          className={`grid gap-3 px-5 py-5 lg:grid-cols-[minmax(240px,1.6fr)_200px_120px_120px_210px] lg:items-start ${
+                          className={`grid gap-3 px-5 py-5 lg:grid-cols-[minmax(240px,1.7fr)_210px_150px_210px] lg:items-start ${
                             index !== 0 ? "border-t border-zinc-200" : ""
                           }`}
                         >
@@ -572,35 +570,29 @@ export default function AdminTienda() {
                             <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 lg:hidden">
                               Precio
                             </p>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={ediciones[producto.id]?.precio ?? ""}
-                              onChange={(e) =>
-                                handleDraftChange(producto.id, "precio", e.target.value)
-                              }
-                              className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
-                            />
-                          </div>
-
-                          <div>
-                            <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 lg:hidden">
-                              Promocional
-                            </p>
-                            <Input
-                              type="number"
-                              min="0"
-                              value={ediciones[producto.id]?.precioPromocional ?? ""}
-                              onChange={(e) =>
-                                handleDraftChange(
-                                  producto.id,
-                                  "precioPromocional",
-                                  e.target.value
-                                )
-                              }
-                              placeholder="Sin promo"
-                              className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
-                            />
+                            <div className="space-y-2">
+                              <Input
+                                type="number"
+                                min="1"
+                                value={ediciones[producto.id]?.precio ?? ""}
+                                onChange={(e) =>
+                                  handleDraftChange(producto.id, "precio", e.target.value)
+                                }
+                                className="h-11 rounded-xl border-zinc-200 bg-white text-sm font-semibold"
+                              />
+                              {getProductoPrecioPromocional(producto) ? (
+                                <p className="text-[11px] font-semibold text-red-600">
+                                  Promo actual: $
+                                  {getProductoPrecioPromocional(producto)?.toLocaleString(
+                                    "es-AR"
+                                  )}
+                                </p>
+                              ) : (
+                                <p className="text-[11px] text-zinc-400">
+                                  La promo se edita desde el modal.
+                                </p>
+                              )}
+                            </div>
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2 lg:flex-nowrap lg:justify-end">

@@ -33,7 +33,7 @@ function fail(error: unknown): TiendaActionResult {
     return {
       ok: false,
       error:
-        "Faltan las columnas stock, precio_promocional, talles y/o variantes en la tabla productos. Ejecuta las migraciones SQL antes de guardar cambios en tienda.",
+        "Faltan las columnas stock, precio_promocional, talles y/o variantes en la tabla productos. Ejecuta las migraciones SQL de tienda antes de guardar cambios, especialmente 20260403_tienda_variantes.sql para los talles con stock.",
     };
   }
 
