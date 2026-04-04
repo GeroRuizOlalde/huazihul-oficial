@@ -1,5 +1,5 @@
 import { TiendaCatalogo } from "@/components/tienda/TiendaCatalogo";
-import { isProductoDisponible, type Producto } from "@/lib/tienda";
+import { isProductoVisible, type Producto } from "@/lib/tienda";
 import { supabasePublic } from "@/lib/supabase/public";
 
 export const revalidate = 60;
@@ -22,7 +22,7 @@ export default async function TiendaPage() {
     console.error("Error cargando productos:", error);
   }
 
-  const productos = ((data ?? []) as Producto[]).filter(isProductoDisponible);
+  const productos = ((data ?? []) as Producto[]).filter(isProductoVisible);
 
   return <TiendaCatalogo productos={productos} whatsappNumber={WHATSAPP_CLUB} />;
 }

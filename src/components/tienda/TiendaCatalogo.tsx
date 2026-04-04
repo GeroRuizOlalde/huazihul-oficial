@@ -2,32 +2,40 @@
 
 import Image from "next/image";
 import { useMemo, useState } from "react";
-import { ArrowRight, MessageCircle, Plus, ShoppingBag, Tag } from "lucide-react";
+import { ArrowRight, MessageCircle, ShoppingBag, Tag } from "lucide-react";
 
 import {
+  getProductoColores,
   formatPrecio,
+  getProductoImagenes,
   getProductoPrecio,
   getProductoPrecioPromocional,
+  getProductoStock,
   getProductoStockTexto,
+  getProductoTalles,
   getProductoTallesDisponibles,
+  hasProductoPromocion,
+  isProductoAgotado,
+  isProductoBajoStock,
   sortTalles,
   type Producto,
 } from "@/lib/tienda";
 import { cn } from "@/lib/utils";
+import { TiendaProductoModal } from "@/components/tienda/TiendaProductoModal";
 
 interface Props {
   productos: Producto[];
   whatsappNumber: string;
 }
 
-function buildWhatsAppLink(producto: Producto, whatsappNumber: string) {
-  const mensaje = `Hola! Quiero consultar por: ${producto.nombre}`;
-  return `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(mensaje)}`;
-}
+type OrdenCatalogo = "relevancia" | "precio-asc" | "precio-desc" | "nombre";
 
 export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
   const [filtroCategoria, setFiltroCategoria] = useState("Todos");
   const [filtroTalle, setFiltroTalle] = useState("Todos");
+  const [soloOfertas, setSoloOfertas] = useState(false);
+  const [orden, setOrden] = useState<OrdenCatalogo>("relevancia");
+  const [productoActivo, setProductoActivo] = useState<Producto | null>(null);
 
   const categorias = useMemo(() => {
     const activas = Array.from(
@@ -40,9 +48,7 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
   const talles = useMemo(() => {
     const disponibles = sortTalles(
       Array.from(
-        new Set(
-          productos.flatMap((producto) => getProductoTallesDisponibles(producto))
-        )
+        new Set(productos.flatMap((producto) => getProductoTalles(producto)))
       )
     );
 
@@ -50,16 +56,42 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
   }, [productos]);
 
   const productosFiltrados = useMemo(() => {
-    return productos.filter((producto) => {
+    const filtered = productos.filter((producto) => {
       const coincideCategoria =
         filtroCategoria === "Todos" || producto.categoria === filtroCategoria;
       const coincideTalle =
-        filtroTalle === "Todos" ||
-        getProductoTallesDisponibles(producto).includes(filtroTalle);
+        filtroTalle === "Todos" || getProductoTalles(producto).includes(filtroTalle);
+      const coincideOferta = !soloOfertas || hasProductoPromocion(producto);
 
-      return coincideCategoria && coincideTalle;
+      return coincideCategoria && coincideTalle && coincideOferta;
     });
-  }, [filtroCategoria, filtroTalle, productos]);
+
+    return [...filtered].sort((a, b) => {
+      if (orden === "precio-asc") {
+        const precioA = getProductoPrecioPromocional(a) ?? getProductoPrecio(a);
+        const precioB = getProductoPrecioPromocional(b) ?? getProductoPrecio(b);
+        return precioA - precioB;
+      }
+
+      if (orden === "precio-desc") {
+        const precioA = getProductoPrecioPromocional(a) ?? getProductoPrecio(a);
+        const precioB = getProductoPrecioPromocional(b) ?? getProductoPrecio(b);
+        return precioB - precioA;
+      }
+
+      if (orden === "nombre") {
+        return a.nombre.localeCompare(b.nombre, "es", { sensitivity: "base" });
+      }
+
+      const score = (producto: Producto) =>
+        (isProductoAgotado(producto) ? 0 : 50) +
+        (hasProductoPromocion(producto) ? 30 : 0) +
+        (isProductoBajoStock(producto) ? 10 : 0) +
+        (getProductoStock(producto) ?? 0);
+
+      return score(b) - score(a);
+    });
+  }, [filtroCategoria, filtroTalle, orden, productos, soloOfertas]);
 
   return (
     <div className="min-h-screen bg-white font-sans text-zinc-900">
@@ -102,8 +134,9 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
           </div>
 
           <div className="mt-8 border-t border-zinc-100 pt-6">
-            <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-              <div>
+            <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+              <div className="space-y-5">
+                <div>
                 <p className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
                   Filtrar por talle
                 </p>
@@ -125,11 +158,44 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                   ))}
                 </div>
               </div>
+                <div className="flex flex-wrap gap-3">
+                  <button
+                    type="button"
+                    onClick={() => setSoloOfertas((prev) => !prev)}
+                    className={cn(
+                      "rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.18em] transition-colors",
+                      soloOfertas
+                        ? "border-red-600 bg-red-600 text-white"
+                        : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-950 hover:text-zinc-950"
+                    )}
+                  >
+                    Solo promociones
+                  </button>
+                </div>
+              </div>
 
-              <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
-                {productosFiltrados.length} producto
-                {productosFiltrados.length === 1 ? "" : "s"} visible
-                {productosFiltrados.length === 1 ? "" : "s"}
+              <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+                <label className="flex items-center gap-3 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
+                  Ordenar
+                  <select
+                    value={orden}
+                    onChange={(event) =>
+                      setOrden(event.target.value as OrdenCatalogo)
+                    }
+                    className="h-11 rounded-full border border-zinc-200 bg-white px-4 text-[11px] font-black uppercase tracking-[0.14em] text-zinc-700 outline-none"
+                  >
+                    <option value="relevancia">Relevancia</option>
+                    <option value="precio-asc">Precio menor</option>
+                    <option value="precio-desc">Precio mayor</option>
+                    <option value="nombre">Nombre</option>
+                  </select>
+                </label>
+
+                <div className="text-[10px] font-black uppercase tracking-[0.2em] text-zinc-400">
+                  {productosFiltrados.length} producto
+                  {productosFiltrados.length === 1 ? "" : "s"} visible
+                  {productosFiltrados.length === 1 ? "" : "s"}
+                </div>
               </div>
             </div>
           </div>
@@ -143,41 +209,54 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
               const precio = getProductoPrecio(producto);
               const precioPromocional = getProductoPrecioPromocional(producto);
               const tallesDisponibles = getProductoTallesDisponibles(producto);
+              const colores = getProductoColores(producto);
+              const imagenes = getProductoImagenes(producto);
+              const agotado = isProductoAgotado(producto);
+              const bajoStock = isProductoBajoStock(producto);
 
               return (
                 <article key={producto.id} className="group">
-                  <div className="relative mb-6 aspect-[3/4] overflow-hidden bg-zinc-50">
-                    <Image
-                      src={producto.imagen_url}
-                      alt={producto.nombre}
-                      fill
-                      sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
-                      className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
-                    />
+                  <button
+                    type="button"
+                    onClick={() => setProductoActivo(producto)}
+                    className="block w-full text-left"
+                  >
+                    <div className="relative mb-6 aspect-[3/4] overflow-hidden bg-zinc-50">
+                      <Image
+                        src={imagenes[0] ?? producto.imagen_url}
+                        alt={producto.nombre}
+                        fill
+                        sizes="(max-width: 768px) 100vw, (max-width: 1280px) 50vw, 33vw"
+                        className="object-cover transition-transform duration-700 ease-out group-hover:scale-105"
+                      />
 
-                    <div className="absolute left-4 top-4 flex flex-wrap gap-2">
-                      <span className="bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 shadow-sm">
-                        {getProductoStockTexto(producto)}
-                      </span>
-                      {precioPromocional ? (
-                        <span className="bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-sm">
-                          Promo
+                      <div className="absolute left-4 top-4 flex flex-wrap gap-2">
+                        <span className="bg-white px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-900 shadow-sm">
+                          {getProductoStockTexto(producto)}
                         </span>
-                      ) : null}
-                    </div>
+                        {precioPromocional ? (
+                          <span className="bg-red-600 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-sm">
+                            Oferta
+                          </span>
+                        ) : null}
+                        {agotado ? (
+                          <span className="bg-zinc-950 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-white shadow-sm">
+                            Agotado
+                          </span>
+                        ) : bajoStock ? (
+                          <span className="bg-amber-400 px-3 py-1 text-[10px] font-black uppercase tracking-[0.2em] text-zinc-950 shadow-sm">
+                            Ultimas
+                          </span>
+                        ) : null}
+                      </div>
 
-                    <div className="absolute inset-0 flex items-end bg-black/5 p-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                      <a
-                        href={buildWhatsAppLink(producto, whatsappNumber)}
-                        target="_blank"
-                        rel="noreferrer"
-                        className="flex w-full items-center justify-center gap-2 bg-white py-4 text-[10px] font-black uppercase tracking-widest text-zinc-900 shadow-2xl"
-                      >
-                        Consultar disponibilidad
-                        <Plus className="h-3 w-3" />
-                      </a>
+                      <div className="absolute inset-0 flex items-end bg-black/5 p-6 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                        <span className="flex w-full items-center justify-center gap-2 bg-white py-4 text-[10px] font-black uppercase tracking-widest text-zinc-900 shadow-2xl">
+                          Ver detalles
+                        </span>
+                      </div>
                     </div>
-                  </div>
+                  </button>
 
                   <div className="space-y-2">
                     <div className="flex items-start justify-between gap-4">
@@ -235,6 +314,19 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                         </span>
                       )}
                     </div>
+
+                    {colores.length > 0 ? (
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        {colores.slice(0, 4).map((color) => (
+                          <span
+                            key={color}
+                            className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600"
+                          >
+                            {color}
+                          </span>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </article>
               );
@@ -288,6 +380,18 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
           </a>
         </div>
       </div>
+
+      <TiendaProductoModal
+        key={productoActivo?.id ?? "sin-producto"}
+        open={Boolean(productoActivo)}
+        onOpenChange={(open) => {
+          if (!open) {
+            setProductoActivo(null);
+          }
+        }}
+        producto={productoActivo}
+        whatsappNumber={whatsappNumber}
+      />
     </div>
   );
 }

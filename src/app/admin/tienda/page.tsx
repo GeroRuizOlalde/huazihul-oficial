@@ -10,6 +10,7 @@ import {
   useState,
 } from "react";
 import {
+  Copy,
   Image as ImageIcon,
   Loader2,
   PencilLine,
@@ -19,6 +20,8 @@ import {
   ShoppingBag,
   Tag,
   Trash2,
+  Eye,
+  EyeOff,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -32,13 +35,18 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
   TALLES_PREDEFINIDOS,
+  getProductoColores,
+  getProductoImagenes,
   getProductoPrecio,
   getProductoPrecioPromocional,
   getProductoStock,
   getProductoStockTexto,
   getProductoTalles,
   getProductoVariantes,
+  hasProductoPromocion,
+  isProductoBajoStock,
   isProductoDisponible,
+  isProductoVisible,
   sortTalles,
   type Producto,
 } from "@/lib/tienda";
@@ -47,9 +55,11 @@ import { getErrorMessage } from "@/lib/utils";
 
 import {
   actualizarProductoAction,
+  duplicarProductoAction,
   editarProductoAction,
   eliminarProductoAction,
   subirProducto,
+  toggleVisibilidadProductoAction,
 } from "./actions";
 
 type ProductoDraft = {
@@ -70,10 +80,22 @@ type ProductoFormState = {
   precioPromocional: string;
   categoria: string;
   variantes: ProductoVarianteForm[];
+  visible: boolean;
+  coloresTexto: string;
   imagen: File | null;
   imagenActualUrl: string;
+  imagenesExtra: File[];
+  imagenesExtraActuales: string[];
   fileInputKey: number;
 };
+
+type FiltroEstado =
+  | "todos"
+  | "publicados"
+  | "ocultos"
+  | "ofertas"
+  | "bajo-stock"
+  | "agotados";
 
 type ProductoModalProps = {
   open: boolean;
@@ -97,6 +119,7 @@ export default function AdminTienda() {
   const [guardandoEdicion, setGuardandoEdicion] = useState(false);
   const [nuevoProductoOpen, setNuevoProductoOpen] = useState(false);
   const [busqueda, setBusqueda] = useState("");
+  const [filtroEstado, setFiltroEstado] = useState<FiltroEstado>("todos");
 
   const [nuevoProductoForm, setNuevoProductoForm] =
     useState<ProductoFormState>(createEmptyForm());
@@ -113,21 +136,30 @@ export default function AdminTienda() {
   const productosFiltrados = useMemo(() => {
     const termino = busquedaDiferida.trim().toLowerCase();
 
-    if (!termino) {
-      return productos;
-    }
-
     return productos.filter((producto) => {
-      return (
+      const coincideBusqueda =
+        !termino ||
         producto.nombre.toLowerCase().includes(termino) ||
         producto.categoria.toLowerCase().includes(termino) ||
         producto.descripcion?.toLowerCase().includes(termino) ||
         getProductoTalles(producto).some((talle) =>
           talle.toLowerCase().includes(termino)
-        )
-      );
+        ) ||
+        getProductoColores(producto).some((color) =>
+          color.toLowerCase().includes(termino)
+        );
+
+      const coincideEstado =
+        filtroEstado === "todos" ||
+        (filtroEstado === "publicados" && isProductoVisible(producto)) ||
+        (filtroEstado === "ocultos" && !isProductoVisible(producto)) ||
+        (filtroEstado === "ofertas" && hasProductoPromocion(producto)) ||
+        (filtroEstado === "bajo-stock" && isProductoBajoStock(producto)) ||
+        (filtroEstado === "agotados" && !isProductoDisponible(producto));
+
+      return coincideBusqueda && coincideEstado;
     });
-  }, [busquedaDiferida, productos]);
+  }, [busquedaDiferida, filtroEstado, productos]);
 
   const faltaMigracionTienda = useMemo(() => {
     if (productos.length === 0) {
@@ -139,9 +171,23 @@ export default function AdminTienda() {
         !("stock" in producto) ||
         !("precio_promocional" in producto) ||
         !("talles" in producto) ||
-        !("variantes" in producto)
+        !("variantes" in producto) ||
+        !("visible" in producto) ||
+        !("colores" in producto) ||
+        !("imagenes_extra" in producto)
     );
   }, [productos]);
+
+  const resumenCatalogo = useMemo(
+    () => ({
+      publicados: productos.filter((producto) => isProductoVisible(producto)).length,
+      ocultos: productos.filter((producto) => !isProductoVisible(producto)).length,
+      ofertas: productos.filter((producto) => hasProductoPromocion(producto)).length,
+      bajoStock: productos.filter((producto) => isProductoBajoStock(producto)).length,
+      agotados: productos.filter((producto) => !isProductoDisponible(producto)).length,
+    }),
+    [productos]
+  );
 
   const fetchProductos = async () => {
     try {
@@ -257,13 +303,13 @@ export default function AdminTienda() {
     }
   };
 
-  const handleEliminar = async (id: string, imagenUrl: string) => {
+  const handleEliminar = async (id: string) => {
     if (!confirm("Seguro que quieres eliminar esta prenda de la tienda?")) {
       return;
     }
 
     try {
-      const result = await eliminarProductoAction(id, imagenUrl);
+      const result = await eliminarProductoAction(id);
 
       if (!result.ok) {
         window.alert(result.error);
@@ -274,6 +320,41 @@ export default function AdminTienda() {
     } catch (error) {
       console.error("Error al eliminar:", error);
       window.alert(getErrorMessage(error, "No se pudo eliminar el producto."));
+    }
+  };
+
+  const handleToggleVisibilidad = async (producto: Producto) => {
+    try {
+      const result = await toggleVisibilidadProductoAction(
+        producto.id,
+        !isProductoVisible(producto)
+      );
+
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+
+      await fetchProductos();
+    } catch (error) {
+      console.error("Error al cambiar visibilidad:", error);
+      window.alert(getErrorMessage(error, "No se pudo cambiar la visibilidad."));
+    }
+  };
+
+  const handleDuplicarProducto = async (producto: Producto) => {
+    try {
+      const result = await duplicarProductoAction(producto.id);
+
+      if (!result.ok) {
+        window.alert(result.error);
+        return;
+      }
+
+      await fetchProductos();
+    } catch (error) {
+      console.error("Error al duplicar:", error);
+      window.alert(getErrorMessage(error, "No se pudo duplicar el producto."));
     }
   };
 
@@ -402,13 +483,65 @@ export default function AdminTienda() {
               </div>
             </div>
 
+            <div className="mt-5 grid gap-3 sm:grid-cols-2 xl:grid-cols-5">
+              <ResumenCard
+                title="Publicados"
+                value={resumenCatalogo.publicados}
+                tone="neutral"
+              />
+              <ResumenCard
+                title="Ocultos"
+                value={resumenCatalogo.ocultos}
+                tone="neutral"
+              />
+              <ResumenCard
+                title="Ofertas"
+                value={resumenCatalogo.ofertas}
+                tone="danger"
+              />
+              <ResumenCard
+                title="Bajo stock"
+                value={resumenCatalogo.bajoStock}
+                tone="warning"
+              />
+              <ResumenCard
+                title="Agotados"
+                value={resumenCatalogo.agotados}
+                tone="dark"
+              />
+            </div>
+
+            <div className="mt-5 flex flex-wrap gap-2">
+              {[
+                ["todos", "Todos"],
+                ["publicados", "Publicados"],
+                ["ocultos", "Ocultos"],
+                ["ofertas", "Con promo"],
+                ["bajo-stock", "Bajo stock"],
+                ["agotados", "Agotados"],
+              ].map(([value, label]) => (
+                <button
+                  key={value}
+                  type="button"
+                  onClick={() => setFiltroEstado(value as FiltroEstado)}
+                  className={`rounded-full border px-4 py-2 text-[10px] font-black uppercase tracking-[0.16em] transition-colors ${
+                    filtroEstado === value
+                      ? "border-zinc-950 bg-zinc-950 text-white"
+                      : "border-zinc-200 bg-white text-zinc-500 hover:border-zinc-900 hover:text-zinc-950"
+                  }`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+
             {faltaMigracionTienda ? (
               <div className="mt-5 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-4 text-sm text-amber-900">
                 La tabla `productos` todavia no tiene las columnas `stock`,
-                `precio_promocional`, `talles` y/o `variantes`. Mientras no
-                ejecutes las migraciones SQL de tienda, crear o editar productos
-                va a fallar. Para los talles con stock por variante necesitas
-                especificamente `20260403_tienda_variantes.sql`.
+                `precio_promocional`, `talles`, `variantes`, `visible`,
+                `colores` y/o `imagenes_extra`. Mientras no ejecutes las
+                migraciones SQL de tienda, crear o editar productos va a fallar.
+                Para esta version necesitas tambien `20260404_tienda_catalogo_extendido.sql`.
               </div>
             ) : null}
           </div>
@@ -451,6 +584,10 @@ export default function AdminTienda() {
                   const talles = getProductoTalles(producto);
                   const variantes = getProductoVariantes(producto);
                   const stockTotal = getProductoStock(producto) ?? 0;
+                  const colores = getProductoColores(producto);
+                  const imagenes = getProductoImagenes(producto);
+                  const visible = isProductoVisible(producto);
+                  const bajoStock = isProductoBajoStock(producto);
 
                   return (
                     <div
@@ -483,8 +620,21 @@ export default function AdminTienda() {
                                   Promo activa
                                 </span>
                               ) : null}
-                              <span className="rounded-full bg-zinc-100 px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-700">
-                                {isProductoDisponible(producto) ? "Visible" : "Sin stock"}
+                              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                                visible
+                                  ? "bg-emerald-50 text-emerald-700"
+                                  : "bg-zinc-200 text-zinc-700"
+                              }`}>
+                                {visible ? "Publicado" : "Oculto"}
+                              </span>
+                              <span className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.18em] ${
+                                isProductoDisponible(producto)
+                                  ? bajoStock
+                                    ? "bg-amber-100 text-amber-800"
+                                    : "bg-zinc-100 text-zinc-700"
+                                  : "bg-zinc-950 text-white"
+                              }`}>
+                                {isProductoDisponible(producto) ? "Con stock" : "Sin stock"}
                               </span>
                             </div>
                             <div className="mt-3 flex flex-wrap gap-2">
@@ -509,6 +659,19 @@ export default function AdminTienda() {
                                   Usa editar para cargar variantes
                                 </span>
                               )}
+                            </div>
+                            <div className="mt-3 flex flex-wrap gap-2">
+                              {colores.slice(0, 4).map((color) => (
+                                <span
+                                  key={color}
+                                  className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600"
+                                >
+                                  {color}
+                                </span>
+                              ))}
+                              <span className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600">
+                                {imagenes.length} foto{imagenes.length === 1 ? "" : "s"}
+                              </span>
                             </div>
                           </div>
                         </div>
@@ -580,7 +743,7 @@ export default function AdminTienda() {
                           <p className="mb-2 text-[10px] font-black uppercase tracking-[0.18em] text-zinc-500 xl:hidden">
                             Acciones
                           </p>
-                          <div className="flex flex-col gap-2 sm:flex-row xl:flex-col 2xl:flex-row xl:justify-end">
+                          <div className="flex flex-col gap-2 sm:grid sm:grid-cols-2 xl:flex-col 2xl:grid 2xl:grid-cols-2 xl:justify-end">
                             <Button
                               type="button"
                               variant="outline"
@@ -589,6 +752,16 @@ export default function AdminTienda() {
                             >
                               <PencilLine className="mr-2 h-4 w-4" />
                               Editar
+                              </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleDuplicarProducto(producto)}
+                              className="h-11 rounded-xl border-zinc-200 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-zinc-700 hover:border-zinc-950 hover:bg-zinc-50"
+                            >
+                              <Copy className="mr-2 h-4 w-4" />
+                              Duplicar
                             </Button>
 
                             <Button
@@ -610,8 +783,27 @@ export default function AdminTienda() {
                             <Button
                               type="button"
                               variant="outline"
-                              onClick={() => handleEliminar(producto.id, producto.imagen_url)}
-                              className="h-11 w-full rounded-xl border-zinc-200 p-0 text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:w-11"
+                              onClick={() => handleToggleVisibilidad(producto)}
+                              className="h-11 rounded-xl border-zinc-200 px-3 text-[11px] font-black uppercase tracking-[0.12em] text-zinc-700 hover:border-blue-200 hover:bg-blue-50 hover:text-blue-700"
+                            >
+                              {visible ? (
+                                <>
+                                  <EyeOff className="mr-2 h-4 w-4" />
+                                  Ocultar
+                                </>
+                              ) : (
+                                <>
+                                  <Eye className="mr-2 h-4 w-4" />
+                                  Publicar
+                                </>
+                              )}
+                            </Button>
+
+                            <Button
+                              type="button"
+                              variant="outline"
+                              onClick={() => handleEliminar(producto.id)}
+                              className="h-11 w-full rounded-xl border-zinc-200 p-0 text-zinc-500 hover:border-red-200 hover:bg-red-50 hover:text-red-600 sm:w-auto"
                             >
                               <Trash2 className="h-4 w-4" />
                               <span className="sr-only">Eliminar producto</span>
@@ -793,6 +985,61 @@ function ProductoModal({
               </div>
             </div>
 
+            <div className="grid gap-4 md:grid-cols-[1fr_1fr]">
+              <div>
+                <Label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                  Colores disponibles
+                </Label>
+                <Input
+                  value={form.coloresTexto}
+                  onChange={(e) =>
+                    updateForm((prev) => ({
+                      ...prev,
+                      coloresTexto: e.target.value,
+                    }))
+                  }
+                  placeholder="Rojo, Negro, Blanco"
+                  className="h-12 rounded-xl border-zinc-200 bg-white text-sm font-medium"
+                />
+                {parseColoresInput(form.coloresTexto).length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {parseColoresInput(form.coloresTexto).map((color) => (
+                      <span
+                        key={color}
+                        className="rounded-full bg-zinc-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-zinc-600"
+                      >
+                        {color}
+                      </span>
+                    ))}
+                  </div>
+                ) : null}
+              </div>
+
+              <label className="flex items-start gap-3 rounded-2xl border border-zinc-200 bg-zinc-50 px-4 py-4">
+                <input
+                  type="checkbox"
+                  checked={form.visible}
+                  onChange={(e) =>
+                    updateForm((prev) => ({
+                      ...prev,
+                      visible: e.target.checked,
+                    }))
+                  }
+                  className="mt-1 h-4 w-4 rounded border-zinc-300 text-blue-600"
+                />
+                <div>
+                  <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                    Visible en tienda
+                  </span>
+                  <p className="mt-1 text-sm font-medium text-zinc-700">
+                    {form.visible
+                      ? "Publicado para clientes"
+                      : "Oculto; solo se ve en el admin"}
+                  </p>
+                </div>
+              </label>
+            </div>
+
             <div>
               <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
                 <div>
@@ -958,6 +1205,68 @@ function ProductoModal({
               </div>
             </div>
 
+            <div>
+              <Label className="mb-2 block text-[10px] font-bold uppercase tracking-[0.18em] text-zinc-500">
+                Galeria adicional
+              </Label>
+
+              {form.imagenesExtraActuales.length > 0 ? (
+                <div className="mb-3 flex flex-wrap gap-3">
+                  {form.imagenesExtraActuales.map((imageUrl) => (
+                    <div
+                      key={imageUrl}
+                      className="relative h-20 w-20 overflow-hidden rounded-2xl border border-zinc-200 bg-zinc-50"
+                    >
+                      <img
+                        src={imageUrl}
+                        alt="Imagen extra"
+                        className="h-full w-full object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={() =>
+                          updateForm((prev) => ({
+                            ...prev,
+                            imagenesExtraActuales: prev.imagenesExtraActuales.filter(
+                              (item) => item !== imageUrl
+                            ),
+                          }))
+                        }
+                        className="absolute right-1 top-1 flex h-6 w-6 items-center justify-center rounded-full bg-white/95 text-zinc-700 shadow"
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              ) : null}
+
+              <div className="group relative flex min-h-32 cursor-pointer flex-col items-center justify-center rounded-2xl border-2 border-dashed border-zinc-200 bg-zinc-50 px-6 py-8 transition-colors hover:border-blue-300 hover:bg-blue-50/40">
+                <input
+                  key={`${form.fileInputKey}-extra`}
+                  type="file"
+                  accept="image/*"
+                  multiple
+                  onChange={(e) =>
+                    updateForm((prev) => ({
+                      ...prev,
+                      imagenesExtra: Array.from(e.target.files ?? []),
+                    }))
+                  }
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+                <ImageIcon className="mb-3 h-7 w-7 text-zinc-300 transition-colors group-hover:text-blue-600" />
+                <p className="text-center text-sm font-semibold text-zinc-700">
+                  {form.imagenesExtra.length > 0
+                    ? `${form.imagenesExtra.length} imagenes listas para subir`
+                    : "Haz click para sumar fotos extra"}
+                </p>
+                <p className="mt-1 text-center text-xs text-zinc-500">
+                  Ideal para detalles, espalda o variantes de color
+                </p>
+              </div>
+            </div>
+
             <p className="text-[11px] font-medium text-zinc-500">
               Si dejas el precio promocional vacio, el producto se mostrara con
               su precio normal.
@@ -1003,8 +1312,12 @@ function createEmptyForm(): ProductoFormState {
     precioPromocional: "",
     categoria: "Rugby",
     variantes: [],
+    visible: true,
+    coloresTexto: "",
     imagen: null,
     imagenActualUrl: "",
+    imagenesExtra: [],
+    imagenesExtraActuales: [],
     fileInputKey: Date.now(),
   };
 }
@@ -1021,8 +1334,12 @@ function buildEditForm(producto: Producto): ProductoFormState {
       talle: variante.talle,
       stock: String(variante.stock),
     })),
+    visible: isProductoVisible(producto),
+    coloresTexto: getProductoColores(producto).join(", "),
     imagen: null,
     imagenActualUrl: producto.imagen_url,
+    imagenesExtra: [],
+    imagenesExtraActuales: getProductoImagenes(producto).slice(1),
     fileInputKey: Date.now(),
   };
 }
@@ -1049,6 +1366,8 @@ function buildProductoFormData(
   formData.append("precio", form.precio);
   formData.append("precio_promocional", form.precioPromocional);
   formData.append("variantes", JSON.stringify(variantesNormalizadas));
+  formData.append("visible", String(form.visible));
+  formData.append("colores", JSON.stringify(parseColoresInput(form.coloresTexto)));
   formData.append(
     "talles",
     JSON.stringify(variantesNormalizadas.map((variante) => variante.talle))
@@ -1060,9 +1379,17 @@ function buildProductoFormData(
     )
   );
   formData.append("categoria", form.categoria);
+  formData.append(
+    "imagenes_extra_actuales",
+    JSON.stringify(form.imagenesExtraActuales)
+  );
 
   if (form.imagen) {
     formData.append("imagen", form.imagen);
+  }
+
+  for (const image of form.imagenesExtra) {
+    formData.append("imagenes_extra_nuevas", image);
   }
 
   return formData;
@@ -1078,6 +1405,55 @@ function createDrafts(productos: Producto[]) {
       },
     ])
   ) as Record<string, ProductoDraft>;
+}
+
+function parseColoresInput(value: string) {
+  return Array.from(
+    new Set(
+      value
+        .split(",")
+        .map((item) => item.trim())
+        .filter(Boolean)
+        .map((item) =>
+          item.replace(/\s+/g, " ").replace(/\b\p{L}/gu, (letter) => letter.toUpperCase())
+        )
+    )
+  );
+}
+
+function ResumenCard({
+  title,
+  value,
+  tone,
+}: {
+  title: string;
+  value: number;
+  tone: "neutral" | "danger" | "warning" | "dark";
+}) {
+  const toneClass =
+    tone === "danger"
+      ? "bg-red-50 text-red-700"
+      : tone === "warning"
+        ? "bg-amber-50 text-amber-800"
+        : tone === "dark"
+          ? "bg-zinc-950 text-white"
+          : "bg-zinc-100 text-zinc-700";
+
+  return (
+    <div className="rounded-2xl border border-zinc-200 bg-white px-4 py-4">
+      <p className="text-[10px] font-black uppercase tracking-[0.18em] text-zinc-400">
+        {title}
+      </p>
+      <div className="mt-3 flex items-center justify-between gap-3">
+        <span className="text-2xl font-black text-zinc-950">{value}</span>
+        <span
+          className={`rounded-full px-3 py-1 text-[10px] font-black uppercase tracking-[0.16em] ${toneClass}`}
+        >
+          {value}
+        </span>
+      </div>
+    </div>
+  );
 }
 
 function toggleVariante(variantes: ProductoVarianteForm[], talle: string) {

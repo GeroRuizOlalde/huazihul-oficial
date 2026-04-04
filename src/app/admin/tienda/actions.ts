@@ -26,6 +26,34 @@ type ProductoInventarioPersistido = {
   stock: number | string | null;
 };
 
+type ProductoDeleteSnapshot = {
+  id: string;
+  imagen_url: string | null;
+  imagenes_extra: unknown;
+};
+
+type ProductoForDuplication = {
+  id: string;
+  nombre: string;
+  descripcion: string | null;
+  precio: number;
+  precio_promocional: number | null;
+  stock: number;
+  en_stock: boolean;
+  talles: string[];
+  variantes: ProductoVarianteInput[];
+  categoria: string;
+  imagen_url: string;
+  imagenes_extra: string[];
+  colores: string[];
+  visible: boolean;
+};
+
+type UploadedImage = {
+  path: string;
+  url: string;
+};
+
 export type TiendaActionResult =
   | { ok: true }
   | { ok: false; error: string };
@@ -38,13 +66,15 @@ function fail(error: unknown): TiendaActionResult {
   const message = getErrorMessage(error);
 
   if (
-    /precio_promocional|stock|talles|variantes/i.test(message) &&
+    /precio_promocional|stock|talles|variantes|visible|colores|imagenes_extra/i.test(
+      message
+    ) &&
     /column|schema cache|does not exist|could not find|has no field/i.test(message)
   ) {
     return {
       ok: false,
       error:
-        "Faltan las columnas stock, precio_promocional, talles y/o variantes en la tabla productos. Ejecuta las migraciones SQL de tienda antes de guardar cambios, especialmente 20260403_tienda_variantes.sql para los talles con stock.",
+        "Faltan columnas de tienda en la tabla productos. Ejecuta las migraciones SQL de tienda, incluyendo 20260403_tienda_variantes.sql y la nueva migracion de catalogo extendido para visibilidad, colores y galeria.",
     };
   }
 
@@ -69,10 +99,15 @@ function fail(error: unknown): TiendaActionResult {
 function shouldFallbackToLegacyTalles(error: unknown) {
   const message = getErrorMessage(error);
 
-  return /variantes/i.test(message) && !/precio_promocional|stock|talles/i.test(message);
+  return (
+    /variantes/i.test(message) &&
+    !/precio_promocional|stock|talles|visible|colores|imagenes_extra/i.test(message)
+  );
 }
 
-function omitVariantes<T extends { variantes: unknown }>(payload: T): Omit<T, "variantes"> {
+function omitVariantes<T extends { variantes: unknown }>(
+  payload: T
+): Omit<T, "variantes"> {
   const { variantes, ...rest } = payload;
   void variantes;
   return rest;
@@ -115,6 +150,171 @@ function parsePrecioPromocional(
   return precioPromocional;
 }
 
+function parseBoolean(value: FormDataEntryValue | null, fallback = true) {
+  const rawValue = String(value ?? "").trim().toLowerCase();
+
+  if (!rawValue) {
+    return fallback;
+  }
+
+  return !["false", "0", "off", "no"].includes(rawValue);
+}
+
+function parseJsonArray(rawValue: string) {
+  if (!rawValue) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(rawValue);
+    return Array.isArray(parsed) ? parsed : [];
+  } catch {
+    return rawValue.split(",");
+  }
+}
+
+function normalizeColor(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+}
+
+function normalizeImageUrl(value: unknown) {
+  return typeof value === "string" ? value.trim() : "";
+}
+
+function parseColores(value: FormDataEntryValue | null) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return [];
+  }
+
+  const items = parseJsonArray(rawValue);
+  const seen = new Set<string>();
+  const colores: string[] = [];
+
+  for (const item of items) {
+    const color = normalizeColor(item);
+    const key = color.toLowerCase();
+
+    if (!color || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    colores.push(color);
+  }
+
+  return colores;
+}
+
+function parseImagenesExtraActuales(value: FormDataEntryValue | null) {
+  const rawValue = String(value ?? "").trim();
+
+  if (!rawValue) {
+    return [];
+  }
+
+  const items = parseJsonArray(rawValue);
+  const seen = new Set<string>();
+  const urls: string[] = [];
+
+  for (const item of items) {
+    const url = normalizeImageUrl(item);
+
+    if (!url || seen.has(url)) {
+      continue;
+    }
+
+    seen.add(url);
+    urls.push(url);
+  }
+
+  return urls;
+}
+
+function getNewImageFiles(formData: FormData, key: string) {
+  return formData
+    .getAll(key)
+    .filter((item): item is File => item instanceof File && item.size > 0);
+}
+
+function validateImageFile(file: File, label: string) {
+  if (!file.type.startsWith("image/")) {
+    throw new Error(`${label} debe ser una imagen.`);
+  }
+
+  if (file.size > 5 * 1024 * 1024) {
+    throw new Error(`${label} supera el limite de 5 MB.`);
+  }
+}
+
+async function uploadImages(
+  supabase: SupabaseClient,
+  files: File[],
+  prefix = "productos"
+) {
+  const uploaded: UploadedImage[] = [];
+
+  try {
+    for (const file of files) {
+      validateImageFile(file, "La imagen");
+
+      const fileExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+      const path = `${prefix}/${crypto.randomUUID()}.${fileExt}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("tienda")
+        .upload(path, file, {
+          cacheControl: "3600",
+          upsert: false,
+        });
+
+      if (uploadError) {
+        throw uploadError;
+      }
+
+      const {
+        data: { publicUrl },
+      } = supabase.storage.from("tienda").getPublicUrl(path);
+
+      uploaded.push({
+        path,
+        url: publicUrl,
+      });
+    }
+
+    return uploaded;
+  } catch (error) {
+    if (uploaded.length > 0) {
+      await supabase.storage
+        .from("tienda")
+        .remove(uploaded.map((image) => image.path));
+    }
+
+    throw error;
+  }
+}
+
+async function cleanupUploadedImages(
+  supabase: SupabaseClient,
+  images: UploadedImage[]
+) {
+  if (images.length === 0) {
+    return;
+  }
+
+  await supabase.storage
+    .from("tienda")
+    .remove(images.map((image) => image.path));
+}
+
 function buildFallbackVariantesFromTalles(
   tallesValue: FormDataEntryValue | null,
   stockTotalValue: FormDataEntryValue | null
@@ -125,18 +325,7 @@ function buildFallbackVariantesFromTalles(
     return [];
   }
 
-  let parsedTalles: unknown;
-
-  try {
-    parsedTalles = JSON.parse(rawTalles);
-  } catch {
-    return [];
-  }
-
-  if (!Array.isArray(parsedTalles)) {
-    return [];
-  }
-
+  const parsedTalles = parseJsonArray(rawTalles);
   const talles = sortTalles(
     Array.from(
       new Set(
@@ -407,6 +596,160 @@ async function verifyAndRepairInventory({
   );
 }
 
+function getPayloadBase(formData: FormData) {
+  const nombre = String(formData.get("nombre") ?? "").trim();
+  const descripcion = String(formData.get("descripcion") ?? "").trim();
+  const categoria = String(formData.get("categoria") ?? "").trim();
+  const precio = parsePrecio(formData.get("precio"));
+  const precioPromocional = parsePrecioPromocional(
+    formData.get("precio_promocional"),
+    precio
+  );
+  const variantes = parseVariantes(
+    formData.get("variantes"),
+    formData.get("talles"),
+    formData.get("stock_total")
+  );
+  const talles = variantes.map((variante) => variante.talle);
+  const stock = variantes.reduce((total, variante) => total + variante.stock, 0);
+  const colores = parseColores(formData.get("colores"));
+  const visible = parseBoolean(formData.get("visible"), true);
+
+  if (!nombre || !categoria) {
+    throw new Error("Completa nombre y categoria.");
+  }
+
+  return {
+    nombre,
+    descripcion: descripcion || null,
+    categoria,
+    precio,
+    precioPromocional,
+    variantes,
+    talles,
+    stock,
+    colores,
+    visible,
+  };
+}
+
+function buildProductPayload({
+  nombre,
+  descripcion,
+  categoria,
+  precio,
+  precioPromocional,
+  variantes,
+  talles,
+  stock,
+  colores,
+  visible,
+  imagenUrl,
+  imagenesExtra,
+}: {
+  nombre: string;
+  descripcion: string | null;
+  categoria: string;
+  precio: number;
+  precioPromocional: number | null;
+  variantes: ProductoVarianteInput[];
+  talles: string[];
+  stock: number;
+  colores: string[];
+  visible: boolean;
+  imagenUrl?: string;
+  imagenesExtra: string[];
+}) {
+  return {
+    nombre,
+    descripcion,
+    categoria,
+    precio,
+    precio_promocional: precioPromocional,
+    stock,
+    en_stock: stock > 0,
+    talles,
+    variantes,
+    colores,
+    visible,
+    imagenes_extra: imagenesExtra,
+    ...(imagenUrl ? { imagen_url: imagenUrl } : {}),
+  };
+}
+
+function parseImageUrlsFromSnapshot(value: unknown) {
+  if (Array.isArray(value)) {
+    return value
+      .filter((item): item is string => typeof item === "string")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
+
+  try {
+    const parsed = JSON.parse(value);
+    return parseImageUrlsFromSnapshot(parsed);
+  } catch {
+    return value
+      .split(",")
+      .map((item) => item.trim())
+      .filter(Boolean);
+  }
+}
+
+async function getReferencedImagePaths(
+  supabase: SupabaseClient,
+  productoId: string,
+  urls: string[]
+) {
+  const uniqueUrls = Array.from(new Set(urls.filter(Boolean)));
+
+  if (uniqueUrls.length === 0) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("productos")
+    .select("id,imagen_url,imagenes_extra");
+
+  if (error) {
+    throw error;
+  }
+
+  const rows = (data ?? []) as ProductoDeleteSnapshot[];
+  const pathsToRemove: string[] = [];
+
+  for (const url of uniqueUrls) {
+    const stillUsed = rows.some((row) => {
+      if (row.id === productoId) {
+        return false;
+      }
+
+      const referenced = new Set<string>([
+        row.imagen_url?.trim() ?? "",
+        ...parseImageUrlsFromSnapshot(row.imagenes_extra),
+      ]);
+
+      return referenced.has(url);
+    });
+
+    if (stillUsed) {
+      continue;
+    }
+
+    const path = getSupabaseStoragePath(url, "tienda");
+
+    if (path) {
+      pathsToRemove.push(path);
+    }
+  }
+
+  return pathsToRemove;
+}
+
 function revalidateTienda() {
   revalidatePath("/admin/tienda");
   revalidatePath("/tienda");
@@ -416,80 +759,29 @@ function revalidateTienda() {
 export async function subirProducto(
   formData: FormData
 ): Promise<TiendaActionResult> {
-  let fileName: string | null = null;
   let productoCreadoId: string | null = null;
+  let uploadedImages: UploadedImage[] = [];
 
   try {
     await requireAdminAccess();
 
     const supabase = await getWriteClient();
-
-    const nombre = String(formData.get("nombre") ?? "").trim();
-    const descripcion = String(formData.get("descripcion") ?? "").trim();
-    const categoria = String(formData.get("categoria") ?? "").trim();
-    const precio = parsePrecio(formData.get("precio"));
-    const precioPromocional = parsePrecioPromocional(
-      formData.get("precio_promocional"),
-      precio
-    );
-    const variantes = parseVariantes(
-      formData.get("variantes"),
-      formData.get("talles"),
-      formData.get("stock_total")
-    );
-    const talles = variantes.map((variante) => variante.talle);
-    const stock = variantes.reduce(
-      (total, variante) => total + variante.stock,
-      0
-    );
+    const base = getPayloadBase(formData);
     const imagen = formData.get("imagen");
-
-    if (!nombre || !categoria) {
-      return fail("Completa nombre y categoria.");
-    }
+    const imagenesExtraFiles = getNewImageFiles(formData, "imagenes_extra_nuevas");
 
     if (!(imagen instanceof File) || imagen.size === 0) {
       return fail("Debes subir una imagen valida.");
     }
 
-    if (!imagen.type.startsWith("image/")) {
-      return fail("El archivo debe ser una imagen.");
-    }
+    uploadedImages = await uploadImages(supabase, [imagen, ...imagenesExtraFiles]);
+    const [mainImage, ...extraImages] = uploadedImages;
 
-    if (imagen.size > 5 * 1024 * 1024) {
-      return fail("La imagen supera el limite de 5 MB.");
-    }
-
-    const fileExt = imagen.name.split(".").pop()?.toLowerCase() || "jpg";
-    fileName = `productos/${crypto.randomUUID()}.${fileExt}`;
-
-    const { error: uploadError } = await supabase.storage
-      .from("tienda")
-      .upload(fileName, imagen, {
-        cacheControl: "3600",
-        upsert: false,
-      });
-
-    if (uploadError) {
-      return fail(uploadError);
-    }
-
-    const {
-      data: { publicUrl },
-    } = supabase.storage.from("tienda").getPublicUrl(fileName);
-
-    const payload = {
-      nombre,
-      descripcion: descripcion || null,
-      precio,
-      precio_promocional: precioPromocional,
-      stock,
-      en_stock: stock > 0,
-      talles,
-      variantes,
-      categoria,
-      imagen_url: publicUrl,
-    };
+    const payload = buildProductPayload({
+      ...base,
+      imagenUrl: mainImage.url,
+      imagenesExtra: extraImages.map((image) => image.url),
+    });
 
     let insertedRow: ProductoInventarioPersistido | null = null;
     let { data: insertData, error: dbError } = await supabase
@@ -510,7 +802,7 @@ export async function subirProducto(
     }
 
     if (dbError) {
-      await supabase.storage.from("tienda").remove([fileName]);
+      await cleanupUploadedImages(supabase, uploadedImages);
       return fail(dbError);
     }
 
@@ -520,9 +812,9 @@ export async function subirProducto(
     const inventoryResult = await verifyAndRepairInventory({
       supabase,
       productoId: insertedRow?.id ?? "",
-      talles,
-      variantes,
-      stock,
+      talles: base.talles,
+      variantes: base.variantes,
+      stock: base.stock,
       snapshot: insertedRow,
     });
 
@@ -531,21 +823,21 @@ export async function subirProducto(
         await supabase.from("productos").delete().eq("id", productoCreadoId);
       }
 
-      await supabase.storage.from("tienda").remove([fileName]);
+      await cleanupUploadedImages(supabase, uploadedImages);
       return inventoryResult;
     }
 
     revalidateTienda();
     return ok();
   } catch (error) {
-    if (fileName) {
+    if (uploadedImages.length > 0) {
       const supabase = await getWriteClient();
 
       if (productoCreadoId) {
         await supabase.from("productos").delete().eq("id", productoCreadoId);
       }
 
-      await supabase.storage.from("tienda").remove([fileName]);
+      await cleanupUploadedImages(supabase, uploadedImages);
     }
 
     return fail(error);
@@ -555,101 +847,48 @@ export async function subirProducto(
 export async function editarProductoAction(
   formData: FormData
 ): Promise<TiendaActionResult> {
-  let newFileName: string | null = null;
+  let newUploadedImages: UploadedImage[] = [];
 
   try {
     await requireAdminAccess();
 
     const supabase = await getWriteClient();
-
     const productoId = String(formData.get("id") ?? "").trim();
-    const nombre = String(formData.get("nombre") ?? "").trim();
-    const descripcion = String(formData.get("descripcion") ?? "").trim();
-    const categoria = String(formData.get("categoria") ?? "").trim();
     const imagenActualUrl = String(formData.get("imagen_actual_url") ?? "").trim();
-    const precio = parsePrecio(formData.get("precio"));
-    const precioPromocional = parsePrecioPromocional(
-      formData.get("precio_promocional"),
-      precio
-    );
-    const variantes = parseVariantes(
-      formData.get("variantes"),
-      formData.get("talles"),
-      formData.get("stock_total")
-    );
-    const talles = variantes.map((variante) => variante.talle);
-    const stock = variantes.reduce(
-      (total, variante) => total + variante.stock,
-      0
-    );
+    const base = getPayloadBase(formData);
     const imagen = formData.get("imagen");
+    const imagenesExtraActuales = parseImagenesExtraActuales(
+      formData.get("imagenes_extra_actuales")
+    );
+    const imagenesExtraFiles = getNewImageFiles(formData, "imagenes_extra_nuevas");
 
     if (!productoId) {
       return fail("Producto invalido.");
     }
 
-    if (!nombre || !categoria) {
-      return fail("Completa nombre y categoria.");
-    }
-
     let imagenUrl = imagenActualUrl;
 
     if (imagen instanceof File && imagen.size > 0) {
-      if (!imagen.type.startsWith("image/")) {
-        return fail("El archivo debe ser una imagen.");
-      }
-
-      if (imagen.size > 5 * 1024 * 1024) {
-        return fail("La imagen supera el limite de 5 MB.");
-      }
-
-      const fileExt = imagen.name.split(".").pop()?.toLowerCase() || "jpg";
-      newFileName = `productos/${crypto.randomUUID()}.${fileExt}`;
-
-      const { error: uploadError } = await supabase.storage
-        .from("tienda")
-        .upload(newFileName, imagen, {
-          cacheControl: "3600",
-          upsert: false,
-        });
-
-      if (uploadError) {
-        return fail(uploadError);
-      }
-
-      const {
-        data: { publicUrl },
-      } = supabase.storage.from("tienda").getPublicUrl(newFileName);
-
-      imagenUrl = publicUrl;
+      const [mainImage] = await uploadImages(supabase, [imagen]);
+      newUploadedImages.push(mainImage);
+      imagenUrl = mainImage.url;
     }
 
-    const payload: {
-      nombre: string;
-      descripcion: string | null;
-      precio: number;
-      precio_promocional: number | null;
-      stock: number;
-      en_stock: boolean;
-      talles: string[];
-      variantes: ProductoVarianteInput[];
-      categoria: string;
-      imagen_url?: string;
-    } = {
-      nombre,
-      descripcion: descripcion || null,
-      precio,
-      precio_promocional: precioPromocional,
-      stock,
-      en_stock: stock > 0,
-      talles,
-      variantes,
-      categoria,
-    };
-
-    if (imagenUrl) {
-      payload.imagen_url = imagenUrl;
+    if (imagenesExtraFiles.length > 0) {
+      const uploadedExtras = await uploadImages(supabase, imagenesExtraFiles);
+      newUploadedImages = [...newUploadedImages, ...uploadedExtras];
     }
+
+    const payload = buildProductPayload({
+      ...base,
+      imagenUrl,
+      imagenesExtra: [
+        ...imagenesExtraActuales,
+        ...newUploadedImages
+          .filter((image) => image.url !== imagenUrl)
+          .map((image) => image.url),
+      ],
+    });
 
     let updatedRow: ProductoInventarioPersistido | null = null;
     let data: ProductoInventarioPersistido | null = null;
@@ -685,10 +924,7 @@ export async function editarProductoAction(
     }
 
     if (error) {
-      if (newFileName) {
-        await supabase.storage.from("tienda").remove([newFileName]);
-      }
-
+      await cleanupUploadedImages(supabase, newUploadedImages);
       return fail(error);
     }
 
@@ -697,9 +933,9 @@ export async function editarProductoAction(
     const inventoryResult = await verifyAndRepairInventory({
       supabase,
       productoId,
-      talles,
-      variantes,
-      stock,
+      talles: base.talles,
+      variantes: base.variantes,
+      stock: base.stock,
       snapshot: updatedRow,
     });
 
@@ -707,20 +943,20 @@ export async function editarProductoAction(
       return inventoryResult;
     }
 
-    if (newFileName && imagenActualUrl) {
-      const oldFileName = getSupabaseStoragePath(imagenActualUrl, "tienda");
+    if (imagen instanceof File && imagen.size > 0 && imagenActualUrl) {
+      const oldMainPath = getSupabaseStoragePath(imagenActualUrl, "tienda");
 
-      if (oldFileName) {
-        await supabase.storage.from("tienda").remove([oldFileName]);
+      if (oldMainPath) {
+        await supabase.storage.from("tienda").remove([oldMainPath]);
       }
     }
 
     revalidateTienda();
     return ok();
   } catch (error) {
-    if (newFileName) {
-      const supabase = await createClient();
-      await supabase.storage.from("tienda").remove([newFileName]);
+    if (newUploadedImages.length > 0) {
+      const supabase = await getWriteClient();
+      await cleanupUploadedImages(supabase, newUploadedImages);
     }
 
     return fail(error);
@@ -773,30 +1009,140 @@ export async function actualizarProductoAction({
   }
 }
 
-export async function eliminarProductoAction(
+export async function toggleVisibilidadProductoAction(
   id: string,
-  imagenUrl: string
+  visible: boolean
 ): Promise<TiendaActionResult> {
   try {
     await requireAdminAccess();
 
     const supabase = await getWriteClient();
-    const fileName = getSupabaseStoragePath(imagenUrl, "tienda");
+    const productoId = String(id ?? "").trim();
 
-    if (fileName) {
-      const { error: storageError } = await supabase.storage
-        .from("tienda")
-        .remove([fileName]);
-
-      if (storageError) {
-        return fail(storageError);
-      }
+    if (!productoId) {
+      return fail("Producto invalido.");
     }
 
-    const { error } = await supabase.from("productos").delete().eq("id", id);
+    const { error } = await supabase
+      .from("productos")
+      .update({ visible })
+      .eq("id", productoId);
 
     if (error) {
       return fail(error);
+    }
+
+    revalidateTienda();
+    return ok();
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function duplicarProductoAction(
+  id: string
+): Promise<TiendaActionResult> {
+  try {
+    await requireAdminAccess();
+
+    const supabase = await getWriteClient();
+    const productoId = String(id ?? "").trim();
+
+    if (!productoId) {
+      return fail("Producto invalido.");
+    }
+
+    const { data, error } = await supabase
+      .from("productos")
+      .select(
+        "id,nombre,descripcion,precio,precio_promocional,stock,en_stock,talles,variantes,categoria,imagen_url,imagenes_extra,colores,visible"
+      )
+      .eq("id", productoId)
+      .maybeSingle();
+
+    if (error) {
+      return fail(error);
+    }
+
+    if (!data) {
+      return fail("No encontramos el producto a duplicar.");
+    }
+
+    const producto = data as ProductoForDuplication;
+    const payload = {
+      nombre: `${producto.nombre} (Copia)`,
+      descripcion: producto.descripcion,
+      precio: producto.precio,
+      precio_promocional: producto.precio_promocional,
+      stock: producto.stock,
+      en_stock: producto.en_stock,
+      talles: producto.talles,
+      variantes: producto.variantes,
+      categoria: producto.categoria,
+      imagen_url: producto.imagen_url,
+      imagenes_extra: producto.imagenes_extra,
+      colores: producto.colores,
+      visible: false,
+    };
+
+    const { error: insertError } = await supabase.from("productos").insert([payload]);
+
+    if (insertError) {
+      return fail(insertError);
+    }
+
+    revalidateTienda();
+    return ok();
+  } catch (error) {
+    return fail(error);
+  }
+}
+
+export async function eliminarProductoAction(
+  id: string
+): Promise<TiendaActionResult> {
+  try {
+    await requireAdminAccess();
+
+    const supabase = await getWriteClient();
+    const productoId = String(id ?? "").trim();
+
+    if (!productoId) {
+      return fail("Producto invalido.");
+    }
+
+    const { data: snapshot, error: snapshotError } = await supabase
+      .from("productos")
+      .select("id,imagen_url,imagenes_extra")
+      .eq("id", productoId)
+      .maybeSingle();
+
+    if (snapshotError) {
+      return fail(snapshotError);
+    }
+
+    const productSnapshot = snapshot as ProductoDeleteSnapshot | null;
+
+    const { error } = await supabase.from("productos").delete().eq("id", productoId);
+
+    if (error) {
+      return fail(error);
+    }
+
+    if (productSnapshot) {
+      const imageUrls = [
+        productSnapshot.imagen_url ?? "",
+        ...parseImageUrlsFromSnapshot(productSnapshot.imagenes_extra),
+      ];
+      const pathsToRemove = await getReferencedImagePaths(
+        supabase,
+        productoId,
+        imageUrls
+      );
+
+      if (pathsToRemove.length > 0) {
+        await supabase.storage.from("tienda").remove(pathsToRemove);
+      }
     }
 
     revalidateTienda();

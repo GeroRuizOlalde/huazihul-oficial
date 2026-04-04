@@ -10,6 +10,7 @@ export type Producto = {
   precio: number | string | null;
   precio_promocional?: number | string | null;
   imagen_url: string;
+  imagenes_extra?: string[] | string | null;
   categoria: string;
   en_stock?: boolean | null;
   stock?: number | string | null;
@@ -19,6 +20,8 @@ export type Producto = {
     | Array<{ talle?: unknown; stock?: unknown }>
     | string
     | null;
+  colores?: string[] | string | null;
+  visible?: boolean | null;
 };
 
 export const TALLES_PREDEFINIDOS = [
@@ -68,6 +71,25 @@ function normalizeTalle(value: unknown) {
   return value.trim().toUpperCase();
 }
 
+function normalizeColor(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value
+    .trim()
+    .replace(/\s+/g, " ")
+    .replace(/\b\p{L}/gu, (letter) => letter.toUpperCase());
+}
+
+function normalizeImageUrl(value: unknown) {
+  if (typeof value !== "string") {
+    return "";
+  }
+
+  return value.trim();
+}
+
 function normalizeStock(value: unknown) {
   const parsed = parseNumber(value);
 
@@ -97,38 +119,62 @@ function compareTalles(a: string, b: string) {
   return a.localeCompare(b, "es", { numeric: true, sensitivity: "base" });
 }
 
-function parseTalles(value: unknown) {
-  let talles: string[] = [];
-
+function parseArrayLike(value: unknown) {
   if (Array.isArray(value)) {
-    talles = value.filter((item): item is string => typeof item === "string");
-  } else if (typeof value === "string" && value.trim()) {
-    const trimmed = value.trim();
+    return value;
+  }
 
-    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
-      try {
-        const parsed = JSON.parse(trimmed);
+  if (typeof value !== "string" || !value.trim()) {
+    return [];
+  }
 
-        if (Array.isArray(parsed)) {
-          talles = parsed.filter((item): item is string => typeof item === "string");
-        }
-      } catch {
-        talles = trimmed.split(",");
-      }
-    } else {
-      talles = trimmed.split(",");
+  const trimmed = value.trim();
+
+  if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+    try {
+      const parsed = JSON.parse(trimmed);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return trimmed.split(",");
     }
   }
 
-  return sortTalles(
-    Array.from(
-      new Set(
-        talles
-          .map((item) => normalizeTalle(item))
-          .filter(Boolean)
-      )
-    )
-  );
+  return trimmed.split(",");
+}
+
+function parseStringArray(
+  value: unknown,
+  normalizeItem: (item: unknown) => string
+) {
+  const items = parseArrayLike(value);
+  const seen = new Set<string>();
+  const result: string[] = [];
+
+  for (const item of items) {
+    const normalized = normalizeItem(item);
+    const key = normalized.toLowerCase();
+
+    if (!normalized || seen.has(key)) {
+      continue;
+    }
+
+    seen.add(key);
+    result.push(normalized);
+  }
+
+  return result;
+}
+
+function parseTalles(value: unknown) {
+  return sortTalles(parseStringArray(value, normalizeTalle));
+}
+
+function parseColores(value: unknown) {
+  return parseStringArray(value, normalizeColor);
+}
+
+function parseImagenesExtra(value: unknown) {
+  return parseStringArray(value, normalizeImageUrl);
 }
 
 function parseVariantesValue(value: Producto["variantes"]) {
@@ -206,6 +252,12 @@ export function getProductoPrecioPromocional(
   return precioPromocional;
 }
 
+export function hasProductoPromocion(
+  producto: Pick<Producto, "precio" | "precio_promocional">
+) {
+  return getProductoPrecioPromocional(producto) !== null;
+}
+
 export function getProductoVariantes(
   producto: Pick<Producto, "variantes" | "talles" | "stock">
 ) {
@@ -234,6 +286,22 @@ export function getProductoVariantes(
   }
 
   return buildFallbackVariantes(producto);
+}
+
+export function getProductoTalleStock(
+  producto: Pick<Producto, "variantes" | "talles" | "stock">,
+  talle: string
+) {
+  const talleNormalizado = normalizeTalle(talle);
+
+  if (!talleNormalizado) {
+    return 0;
+  }
+
+  const variantes = getProductoVariantes(producto);
+  const variante = variantes.find((item) => item.talle === talleNormalizado);
+
+  return variante?.stock ?? 0;
 }
 
 export function getProductoStock(
@@ -283,6 +351,23 @@ export function getProductoTallesDisponibles(
   return stock > 0 ? talles : [];
 }
 
+export function getProductoColores(producto: Pick<Producto, "colores">) {
+  return parseColores(producto.colores);
+}
+
+export function getProductoImagenes(
+  producto: Pick<Producto, "imagen_url" | "imagenes_extra">
+) {
+  return parseStringArray(
+    [producto.imagen_url, ...parseImagenesExtra(producto.imagenes_extra)],
+    normalizeImageUrl
+  );
+}
+
+export function isProductoVisible(producto: Pick<Producto, "visible">) {
+  return producto.visible !== false;
+}
+
 export function isProductoDisponible(
   producto: Pick<Producto, "stock" | "talles" | "variantes" | "en_stock">
 ) {
@@ -297,6 +382,25 @@ export function isProductoDisponible(
   }
 
   return true;
+}
+
+export function isProductoAgotado(
+  producto: Pick<Producto, "stock" | "talles" | "variantes" | "en_stock">
+) {
+  return !isProductoDisponible(producto);
+}
+
+export function isProductoBajoStock(
+  producto: Pick<Producto, "stock" | "talles" | "variantes" | "en_stock">,
+  threshold = 3
+) {
+  const stock = getProductoStock(producto);
+
+  if (stock === null) {
+    return false;
+  }
+
+  return stock > 0 && stock <= threshold;
 }
 
 export function getProductoStockTexto(

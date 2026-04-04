@@ -19,6 +19,7 @@ import {
   getProductoPrecio,
   getProductoPrecioPromocional,
   isProductoDisponible,
+  isProductoVisible,
   type Producto,
 } from "@/lib/tienda";
 
@@ -85,7 +86,7 @@ export default async function HomePage() {
 
   const noticias = noticiasBD ?? [];
   const productos = ((productosBD ?? []) as Producto[])
-    .filter(isProductoDisponible)
+    .filter((producto) => isProductoVisible(producto) && isProductoDisponible(producto))
     .slice(0, 4);
   const partidoBD = proximo || ultimo;
 
