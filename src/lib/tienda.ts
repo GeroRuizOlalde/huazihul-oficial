@@ -8,6 +8,7 @@ export type Producto = {
   categoria: string;
   en_stock?: boolean | null;
   stock?: number | string | null;
+  talles?: string[] | string | null;
 };
 
 function parseNumber(value: unknown) {
@@ -99,4 +100,38 @@ export function getProductoStockTexto(
   }
 
   return `Stock: ${stock}`;
+}
+
+export function getProductoTalles(producto: Pick<Producto, "talles">) {
+  const value = producto.talles;
+
+  let talles: string[] = [];
+
+  if (Array.isArray(value)) {
+    talles = value.filter((item): item is string => typeof item === "string");
+  } else if (typeof value === "string" && value.trim()) {
+    const trimmed = value.trim();
+
+    if (trimmed.startsWith("[") && trimmed.endsWith("]")) {
+      try {
+        const parsed = JSON.parse(trimmed);
+
+        if (Array.isArray(parsed)) {
+          talles = parsed.filter((item): item is string => typeof item === "string");
+        }
+      } catch {
+        talles = trimmed.split(",");
+      }
+    } else {
+      talles = trimmed.split(",");
+    }
+  }
+
+  return Array.from(
+    new Set(
+      talles
+        .map((item) => item.trim().toUpperCase())
+        .filter(Boolean)
+    )
+  );
 }

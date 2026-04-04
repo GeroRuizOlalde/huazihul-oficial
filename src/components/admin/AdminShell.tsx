@@ -23,6 +23,13 @@ type AdminShellProps = {
   children: React.ReactNode;
 };
 
+type BadgeCounts = {
+  mensajes: number;
+  inscripciones: number;
+  aspirantes: number;
+  galeria: number;
+};
+
 type NavItem = {
   href: string;
   icon: React.ReactNode;
@@ -30,20 +37,33 @@ type NavItem = {
   badge?: number;
 };
 
+const BADGE_POLL_INTERVAL_MS = 20000;
+const BADGE_REFRESH_DEBOUNCE_MS = 400;
+
 export function AdminShell({ children }: AdminShellProps) {
   const supabase = useMemo(() => createClient(), []);
   const router = useRouter();
   const pathname = usePathname();
 
-  const [mensajesNoLeidos, setMensajesNoLeidos] = useState(0);
-  const [inscripcionesPendientes, setInscripcionesPendientes] = useState(0);
+  const [badgeCounts, setBadgeCounts] = useState<BadgeCounts>({
+    mensajes: 0,
+    inscripciones: 0,
+    aspirantes: 0,
+    galeria: 0,
+  });
   const [isSigningOut, setIsSigningOut] = useState(false);
 
   useEffect(() => {
     let active = true;
+    let refreshTimeout: ReturnType<typeof setTimeout> | null = null;
 
     const syncBadges = async () => {
-      const [{ count: noLeidos }, { count: pendientes }] = await Promise.all([
+      const [
+        { count: mensajes },
+        { count: inscripciones },
+        { count: aspirantes },
+        { count: galeria },
+      ] = await Promise.all([
         supabase
           .from("mensajes_contacto")
           .select("*", { count: "exact", head: true })
@@ -52,22 +72,79 @@ export function AdminShell({ children }: AdminShellProps) {
           .from("inscripciones_prueba")
           .select("*", { count: "exact", head: true })
           .eq("estado", "pendiente"),
+        supabase
+          .from("socios_aspirantes")
+          .select("*", { count: "exact", head: true }),
+        supabase
+          .from("galeria")
+          .select("*", { count: "exact", head: true })
+          .eq("aprobado", false),
       ]);
 
       if (!active) {
         return;
       }
 
-      setMensajesNoLeidos(noLeidos ?? 0);
-      setInscripcionesPendientes(pendientes ?? 0);
+      setBadgeCounts({
+        mensajes: mensajes ?? 0,
+        inscripciones: inscripciones ?? 0,
+        aspirantes: aspirantes ?? 0,
+        galeria: galeria ?? 0,
+      });
+    };
+
+    const scheduleSync = () => {
+      if (refreshTimeout) {
+        return;
+      }
+
+      refreshTimeout = setTimeout(() => {
+        refreshTimeout = null;
+        void syncBadges();
+      }, BADGE_REFRESH_DEBOUNCE_MS);
     };
 
     void syncBadges();
 
+    const intervalId = setInterval(() => {
+      void syncBadges();
+    }, BADGE_POLL_INTERVAL_MS);
+
+    const channel = supabase
+      .channel("admin-sidebar-badges")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "mensajes_contacto" },
+        scheduleSync
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "inscripciones_prueba" },
+        scheduleSync
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "socios_aspirantes" },
+        scheduleSync
+      )
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "galeria" },
+        scheduleSync
+      )
+      .subscribe();
+
     return () => {
       active = false;
+      clearInterval(intervalId);
+
+      if (refreshTimeout) {
+        clearTimeout(refreshTimeout);
+      }
+
+      void supabase.removeChannel(channel);
     };
-  }, [pathname, supabase]);
+  }, [supabase]);
 
   const handleLogout = async () => {
     setIsSigningOut(true);
@@ -75,6 +152,9 @@ export function AdminShell({ children }: AdminShellProps) {
     router.replace("/");
     router.refresh();
   };
+
+  const solicitudesPendientes =
+    badgeCounts.aspirantes + badgeCounts.galeria + badgeCounts.inscripciones;
 
   const items: NavItem[] = [
     {
@@ -96,6 +176,7 @@ export function AdminShell({ children }: AdminShellProps) {
       href: "/admin/socios",
       icon: <Users className="h-4 w-4" />,
       label: "Socios",
+      badge: badgeCounts.aspirantes,
     },
     {
       href: "/admin/partidos",
@@ -106,18 +187,19 @@ export function AdminShell({ children }: AdminShellProps) {
       href: "/admin/galeria",
       icon: <Camera className="h-4 w-4" />,
       label: "Galeria",
+      badge: badgeCounts.galeria,
     },
     {
       href: "/admin/mensajes",
       icon: <MessageSquare className="h-4 w-4" />,
       label: "Mensajes",
-      badge: mensajesNoLeidos,
+      badge: badgeCounts.mensajes,
     },
     {
       href: "/admin/inscripciones",
       icon: <ClipboardList className="h-4 w-4" />,
       label: "Clases de Prueba",
-      badge: inscripcionesPendientes,
+      badge: badgeCounts.inscripciones,
     },
   ];
 
@@ -165,8 +247,13 @@ export function AdminShell({ children }: AdminShellProps) {
           </div>
           {items.slice(0, 6).map(navItem)}
 
-          <div className="mb-4 mt-8 px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
-            Interacciones
+          <div className="mb-4 mt-8 flex items-center justify-between px-6 text-[10px] font-black uppercase tracking-[0.3em] text-zinc-300">
+            <span>Interacciones</span>
+            {solicitudesPendientes > 0 ? (
+              <span className="rounded-none bg-red-600 px-2 py-1 text-[9px] text-white">
+                {solicitudesPendientes}
+              </span>
+            ) : null}
           </div>
           {items.slice(6).map(navItem)}
         </nav>

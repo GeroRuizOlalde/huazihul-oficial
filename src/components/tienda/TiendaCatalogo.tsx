@@ -9,6 +9,7 @@ import {
   getProductoPrecio,
   getProductoPrecioPromocional,
   getProductoStockTexto,
+  getProductoTalles,
   type Producto,
 } from "@/lib/tienda";
 import { cn } from "@/lib/utils";
@@ -90,6 +91,7 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
             {productosFiltrados.map((producto) => {
               const precio = getProductoPrecio(producto);
               const precioPromocional = getProductoPrecioPromocional(producto);
+              const talles = getProductoTalles(producto);
 
               return (
                 <article key={producto.id} className="group">
@@ -157,6 +159,30 @@ export function TiendaCatalogo({ productos, whatsappNumber }: Props) {
                       <p className="truncate text-xs text-zinc-500">
                         {producto.descripcion?.trim() || "Consulta directa con el club."}
                       </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-2 pt-1">
+                      {talles.length > 0 ? (
+                        <>
+                          {talles.slice(0, 5).map((talle) => (
+                            <span
+                              key={talle}
+                              className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-700"
+                            >
+                              {talle}
+                            </span>
+                          ))}
+                          {talles.length > 5 ? (
+                            <span className="rounded-full border border-zinc-200 bg-white px-2.5 py-1 text-[10px] font-black uppercase tracking-[0.16em] text-zinc-500">
+                              +{talles.length - 5}
+                            </span>
+                          ) : null}
+                        </>
+                      ) : (
+                        <span className="text-[11px] text-zinc-400">
+                          Consultar talles disponibles
+                        </span>
+                      )}
                     </div>
                   </div>
                 </article>
