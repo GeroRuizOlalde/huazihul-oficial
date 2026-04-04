@@ -10,7 +10,6 @@ import { getErrorMessage, getSupabaseStoragePath } from "@/lib/utils";
 type ActualizarProductoPayload = {
   id: string;
   precio: number;
-  precioPromocional: number | null;
 };
 
 type ProductoVarianteInput = {
@@ -29,7 +28,10 @@ function ok(): TiendaActionResult {
 function fail(error: unknown): TiendaActionResult {
   const message = getErrorMessage(error);
 
-  if (/precio_promocional|stock|talles|variantes/i.test(message)) {
+  if (
+    /precio_promocional|stock|talles|variantes/i.test(message) &&
+    /column|schema cache|does not exist|could not find|has no field/i.test(message)
+  ) {
     return {
       ok: false,
       error:
@@ -53,6 +55,18 @@ function fail(error: unknown): TiendaActionResult {
   }
 
   return { ok: false, error: message };
+}
+
+function shouldFallbackToLegacyTalles(error: unknown) {
+  const message = getErrorMessage(error);
+
+  return /variantes/i.test(message) && !/precio_promocional|stock|talles/i.test(message);
+}
+
+function omitVariantes<T extends { variantes: unknown }>(payload: T): Omit<T, "variantes"> {
+  const { variantes, ...rest } = payload;
+  void variantes;
+  return rest;
 }
 
 function parsePrecio(value: FormDataEntryValue | null) {
@@ -211,20 +225,26 @@ export async function subirProducto(
       data: { publicUrl },
     } = supabase.storage.from("tienda").getPublicUrl(fileName);
 
-    const { error: dbError } = await supabase.from("productos").insert([
-      {
-        nombre,
-        descripcion: descripcion || null,
-        precio,
-        precio_promocional: precioPromocional,
-        stock,
-        en_stock: stock > 0,
-        talles,
-        variantes,
-        categoria,
-        imagen_url: publicUrl,
-      },
-    ]);
+    const payload = {
+      nombre,
+      descripcion: descripcion || null,
+      precio,
+      precio_promocional: precioPromocional,
+      stock,
+      en_stock: stock > 0,
+      talles,
+      variantes,
+      categoria,
+      imagen_url: publicUrl,
+    };
+
+    let { error: dbError } = await supabase.from("productos").insert([payload]);
+
+    if (dbError && shouldFallbackToLegacyTalles(dbError)) {
+      const legacyPayload = omitVariantes(payload);
+      const fallback = await supabase.from("productos").insert([legacyPayload]);
+      dbError = fallback.error;
+    }
 
     if (dbError) {
       await supabase.storage.from("tienda").remove([fileName]);
@@ -338,10 +358,19 @@ export async function editarProductoAction(
       payload.imagen_url = imagenUrl;
     }
 
-    const { error } = await supabase
+    let { error } = await supabase
       .from("productos")
       .update(payload)
       .eq("id", productoId);
+
+    if (error && shouldFallbackToLegacyTalles(error)) {
+      const legacyPayload = omitVariantes(payload);
+      const fallback = await supabase
+        .from("productos")
+        .update(legacyPayload)
+        .eq("id", productoId);
+      error = fallback.error;
+    }
 
     if (error) {
       if (newFileName) {
@@ -374,7 +403,6 @@ export async function editarProductoAction(
 export async function actualizarProductoAction({
   id,
   precio,
-  precioPromocional,
 }: ActualizarProductoPayload): Promise<TiendaActionResult> {
   try {
     await requireAdminAccess();
@@ -383,8 +411,6 @@ export async function actualizarProductoAction({
 
     const productoId = String(id ?? "").trim();
     const precioFinal = Number(precio);
-    const precioPromocionalFinal =
-      precioPromocional === null ? null : Number(precioPromocional);
 
     if (!productoId) {
       return fail("Producto invalido.");
@@ -394,24 +420,22 @@ export async function actualizarProductoAction({
       return fail("El precio debe ser mayor a 0.");
     }
 
-    if (
-      precioPromocionalFinal !== null &&
-      (!Number.isFinite(precioPromocionalFinal) ||
-        precioPromocionalFinal <= 0 ||
-        precioPromocionalFinal >= precioFinal)
-    ) {
-      return fail("El precio promocional debe ser mayor a 0 y menor al precio.");
-    }
-
     const { error } = await supabase
       .from("productos")
       .update({
         precio: precioFinal,
-        precio_promocional: precioPromocionalFinal,
       })
       .eq("id", productoId);
 
     if (error) {
+      const message = getErrorMessage(error);
+
+      if (/productos_precio_promocional_valido|precio_promocional/i.test(message)) {
+        return fail(
+          "El precio rapido no pudo guardarse porque la promo actual queda igual o por encima del nuevo precio. Edita el producto y ajusta la promo desde el modal."
+        );
+      }
+
       return fail(error);
     }
 

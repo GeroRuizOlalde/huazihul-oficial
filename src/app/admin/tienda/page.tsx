@@ -54,7 +54,6 @@ import {
 
 type ProductoDraft = {
   precio: string;
-  precioPromocional: string;
   guardando: boolean;
 };
 
@@ -280,7 +279,7 @@ export default function AdminTienda() {
 
   const handleDraftChange = (
     id: string,
-    field: keyof Omit<ProductoDraft, "guardando">,
+    field: "precio",
     value: string
   ) => {
     setEdiciones((prev) => ({
@@ -288,7 +287,6 @@ export default function AdminTienda() {
       [id]: {
         ...(prev[id] ?? {
           precio: "",
-          precioPromocional: "",
           guardando: false,
         }),
         [field]: value,
@@ -304,22 +302,9 @@ export default function AdminTienda() {
     }
 
     const precioValue = Number(draft.precio);
-    const precioPromocionalValue = draft.precioPromocional.trim()
-      ? Number(draft.precioPromocional)
-      : null;
 
     if (!Number.isFinite(precioValue) || precioValue <= 0) {
       window.alert("El precio debe ser mayor a 0.");
-      return;
-    }
-
-    if (
-      precioPromocionalValue !== null &&
-      (!Number.isFinite(precioPromocionalValue) ||
-        precioPromocionalValue <= 0 ||
-        precioPromocionalValue >= precioValue)
-    ) {
-      window.alert("El precio promocional debe ser menor al precio normal.");
       return;
     }
 
@@ -335,7 +320,6 @@ export default function AdminTienda() {
       const result = await actualizarProductoAction({
         id: producto.id,
         precio: precioValue,
-        precioPromocional: precioPromocionalValue,
       });
 
       if (!result.ok) {
@@ -1081,7 +1065,6 @@ function createDrafts(productos: Producto[]) {
       producto.id,
       {
         precio: String(getProductoPrecio(producto)),
-        precioPromocional: getProductoPrecioPromocional(producto)?.toString() ?? "",
         guardando: false,
       },
     ])
